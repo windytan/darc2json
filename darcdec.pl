@@ -5,7 +5,7 @@ use Digest::CRC qw(crc);
 use Devel::Hexdump 'xd';
 use 5.010;
 
-$input_wav = "neljas.wav";
+$input_wav = "test.wav";
 
 $dump = 0;
 
@@ -32,45 +32,55 @@ $Tb = 1/$bps;
          0b1100_1000_0111_0101 => 4);
 @bickeys = keys %bics;
 
-for $byte (0..23) {
-  for $bit (0..7) {
-    $str = ($byte < 23 && (chr(0) x (23-$byte))) . chr(0b1<<$bit) . ($byte > 0 && (chr(0) x $byte));
-    $sy = crc82($str, chr(0) x 10);
 
-    # shift 2 left
-    $bits = "00".substr(unpack("B*",$str),0,-2);
-    $str = pack("B*",$bits);
-    $errstring{$sy} = $str;
-    #print "errstring($sy) -> byte$byte bit$bit\n";
-    #print xd $str;
+if (-e "syndrome82") {
+  open(S,"syndrome82");
+  while (<S>) {
+    chomp();
+    ($a,$b) = split(/ /,$_);
+    $errstring{$a} = pack("H*",$b);
   }
-  for $bit (0..6) {
-    $str = ($byte < 23 && (chr(0) x (23-$byte))) . chr(0b11<<$bit) . ($byte > 0 && (chr(0) x $byte));
-    $sy = crc82($str, chr(0) x 10);
+  close(S);
+
+} else {
+  print "syndrome precalc\n";
+
+  @estrings = ([1,0b1],[2,0b11]);
+  for $len (3..10) {
+    for $n (0..2**($len-2)-1) {
+      $es = (1<<($len-1)) + ($n << 1) + 1;
+      push (@estrings, [$len,$es]);
+    }
+  }
+
+  open(U,">syndrome82");
+  for (@estrings) {
+    ($len,$es) = @{$_};
+    printf("  ($len-bit %010x)\n",$es);
+    for $shft (0..190-$len) {
+      $bits= ("0" x (190-$shft-$len)) . sprintf("%b",$es) . ("0" x $shft);
+      $str = pack("B*",$bits);
+      $sy = crc82($str, chr(0) x 10);
+
+      # shift 2 left
+      $bits = "00".substr(unpack("B*",$str),0,-2);
+      $str = pack("B*",$bits);
+      $errstring{$sy} = $str;
+
+      print U "$sy ".unpack("H48",$str)."\n";
     
-    $bits = "00".substr(unpack("B*",$str),0,-2);
-    $str = pack("B*",$bits);
-    $errstring{$sy} = $str;
+    }
   }
-  for $bit (0..5) {
-    $str = ($byte < 23 && (chr(0) x (23-$byte))) . chr(0b101<<$bit) . ($byte > 0 && (chr(0) x $byte));
-    $sy = crc82($str, chr(0) x 10);
-    
-    $bits = "00".substr(unpack("B*",$str),0,-2);
-    $str = pack("B*",$bits);
-    $errstring{$sy} = $str;
-  }
-  for $bit (0..5) {
-    $str = ($byte < 23 && (chr(0) x (23-$byte))) . chr(0b111<<$bit) . ($byte > 0 && (chr(0) x $byte));
-    $sy = crc82($str, chr(0) x 10);
-    
-    $bits = "00".substr(unpack("B*",$str),0,-2);
-    $str = pack("B*",$bits);
-    $errstring{$sy} = $str;
-  }
+  close(U);
 }
 
 sub detect {
+
+  if (-s $input_wav < 100) {
+    print "input file is empty!";
+    exit;
+  }
+
   print "darc bandpass\n";
   system("sox $input_wav 1_bandpass.wav sinc -L 66000-86000");
 
@@ -79,26 +89,8 @@ sub detect {
   system("sox 1_bandpass.wav 2_split_hi.wav sinc $fc");
 
   print "envelope\n";
-  open(S1,"sox 2_split_lo.wav -t .raw -|");
-  open(S2,"sox 2_split_hi.wav -t .raw -|");
-
-  open(U,"|sox -t .raw -b 16 -e signed -r $fs -c 2 - 3_envelope_filtered.wav sinc -$bps");
-  while (not eof S1) {
-
-    read(S1,$a,2);
-    read(S2,$b,2);
-
-    $a = ((unpack("s",$a)/32768) ** 2) * 327680000;
-    $b = ((unpack("s",$b)/32768) ** 2) * 327680000;
-    
-    print U pack("s",$a);
-    print U pack("s",$b);
-
-  }
-  close(S1);
-  close(S2);
-  close(U);
-
+  system("sox -M 2_split_lo.wav 2_split_hi.wav -t .raw -| ./envelope | sox -t .raw -b 16 -e signed -r $fs -c 2 - 3_envelope_filtered.wav sinc -$bps");
+  
   print "difference\n";
   open(S,"sox 3_envelope_filtered.wav -t .raw -|");
   open(U,"|sox -c 1 -b 16 -e signed -r $fs -t .raw - 4_difference.wav");
@@ -190,23 +182,25 @@ sub layer2 {
 
       if (($bicnum // 0) == 4) {
         print "(parity)";
+      } elsif (not defined $bicnum) {
+        print "\n";
       } else {
         @data = @words[0..10];
         $dstring = "";
         $dstring .= chr($_>>8) . chr($_ & 0xff) for (@data);
         $crc = $words[11] >> 2;
 
-        $calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
-        $my_crc = crc14($dstring,pack("S>",$crc));
-        $haserror = ($crc != $calc_crc ? 1 : 0);
+        #$calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
+        $synd = crc14($dstring,pack("S>",$crc));
+        $haserror = ($synd eq "0000" ? 0 : 1);
 
         print "info:";
         printf("%04x ",$_) for (@data);
         print " crc:";
         print colored([$haserror ? 'red' : 'green'],sprintf("%04x",$crc));
-        print " (synd=$my_crc)";
+        print " (synd=$synd)";
 
-        print " parity:";
+        print "\nparity:";
         $parstring = chr($words[11] & 0b11);
         $parstring .= chr($words[$_]>>8) . chr($words[$_] & 0xff) for (12..16);
         printf("%02x",ord(substr($parstring,$_,1))) for (0..length($parstring)-1);
@@ -239,9 +233,10 @@ sub layer2 {
           $haserror = ($crc != $calc_crc ? 1 : 0);
 
           if (!$haserror) {
-            print "\n";
-            print colored(['green'],"ftfy :)");
+            print colored(['green']," ftfy :)");
             print " synd=$my_crc";
+          } else {
+            print colored(['red']," fix fails!");
           }
 
           #print "haserror: $haserror (res $my_crc)\n";
@@ -338,10 +333,14 @@ sub layer3 {
     $di = field($data[0],4,1);
     $lf = field($data[0],5,1);
     $sc = field($data[0],6,4);
-    $lm_crc = field($data[0],10,6);
-    $calc_lm_crc = crc(pack("S",$data[0]>>6),6,0x0,0x0,0,0b1011001,0,0);
-    printf("crc: %06b (calc: %06b)\n",$lm_crc,$calc_lm_crc);
+    $lm_crc = $data[0] & 0b111111;
+    $calc_synd = crc6(pack("S>",$data[0]), chr($lm_crc), 6);
+    printf("L3-hdr-crc: %02x (synd: $calc_synd)\n",$lm_crc);
     print "sc:$sc\n";
+    if ($sc != ((($prev_sc//0)+1) % 16)) {
+      %lmsg = ();
+    }
+
     print "Real-Time\n" if ($di);
     print "Last Fragment\n" if ($lf);
     shift(@data);
@@ -350,9 +349,18 @@ sub layer3 {
       $dta .= chr(field($_,0,8));
       $dta .= chr(field($_,8,8));
     }
+    $lmsg{'data'} .= $dta;
+    $lmsg{'errors'} .= $haserror;
+
     print "Data: ";
     printsafe ($dta);
     print "\n";
+    
+    if ($lf) {
+      longmsg();
+    }
+    $prev_sc = $sc;
+
   } elsif ($SILCh == 0xB) {
     print "Block Message Channel (BMCh)\n";
     $SCh = field($data[0],5,3);
@@ -368,19 +376,17 @@ sub layer3 {
       print colored(['red'],"err\n");
     }
   } else {
-    print colored(['red'],"err");
+    print colored(['red'],"err\n");
   }
 }
 
 sub servmsg {
   return if (not exists $servmsgbuf{'ecc'});
   print "Service Message (errs ";
-  for (split(//,$servmsgbuf{'errors'})) {
-    if ($_) {
-      print colored(['red'],$_);
-    } else {
-      print colored(['green'],$_);
-    }
+  if ($servmsgbuf{'errors'} =~ /1/) {
+    print colored(['red'],$servmsgbuf{'errors'});
+  } else {
+    print colored(['green'],$servmsgbuf{'errors'});
   }
   
   print ") [[\n";
@@ -488,8 +494,50 @@ sub servmsg {
     }
   }
 
-
   print "]]\n";
+}
+
+sub longmsg {
+  my $dta = $lmsg{'data'};
+
+  print "Long Message: [[";
+  print "\n  errors: ";
+  if ($lmsg{'errors'} =~ /1/) {
+    print colored(['red'],$lmsg{'errors'}."\n");
+  } else {
+    print colored(['green'],$lmsg{'errors'}."\n");
+  }
+  my @hdr = split(//,$dta);
+  $_ = ord($_) for (@hdr);
+  $ri = $hdr[0] >> 6;
+  $ci = ($hdr[0] >> 4) & 0b11;
+  $fl = ($hdr[0] >> 2) & 0b11;
+  $ext = ($hdr[0] >> 1) & 1;
+  $add = (($hdr[0] & 1) << 8) + $hdr[1];
+  if ($ext) {
+    $extadd = $hdr[2] >> 3;
+  }
+  $com = ($hdr[2+$ext] >> 7) &1;
+  $caf = ($hdr[2+$ext] >> 6) &1;
+  $dlen = (($hdr[2+$ext] & 0b111111) << 2) + ($hdr[3+$ext] >> 6);
+
+  #if (!$caf) {
+    $crc = ($hdr[3+$ext] & 0b111111);
+    #} 
+
+  $calc_synd = crc6(substr($dta,0,4), pack("S>",$crc), 6);
+  printf( "  ri $ri  ci $ci  f/l %02b  ext? $ext  add %03x  com? $com  caf? $caf  dlen $dlen  L4crc %02x  synd $calc_synd\n",$fl,$add,$crc);
+  #my $synd = crc6();
+
+  if ($calc_synd eq "00") {
+    print "  data:";
+    printsafe(substr($dta,4,$dlen));
+    print "\n";
+  } else {
+    print "  (invalid header - missed fragment?)\n";
+  }
+  print "]]\n";
+  %lmsg = ();  
 }
 
 sub scramble_init {
@@ -497,7 +545,7 @@ sub scramble_init {
 }
 
 sub dec_af {
-  if ($_[0] >= 1 && $_[0] <= 204) {
+  if (defined($_[0]) && $_[0] >= 1 && $_[0] <= 204) {
     return 87.5 + $_[0]*.1;
   } else {
     return "err";
@@ -532,54 +580,56 @@ sub printsafe {
   }
 }
 
+# Layer2 CRC
 # crc14(data, init)
 sub crc14 {
-  my $input  = $_[0];
-  my $init   = $_[1];
-  my $len    = 14;
-  my @coeffs = (14,11,2,0);
-  my $clipbits = 0;
-  
-  my $poly   = "0" x ($len+1);
-  substr($poly,length($poly)-$_-1,1) = 1 for (@coeffs);
-  my $data = unpack("B*",$input);
-  substr($data,-$clipbits,$clipbits) = "" if ($clipbits > 0);
-  #$data .= ("0" x $len);
-  $init = unpack("B*",$init);
-  $data .= substr($init,-$len);
-  for $a (0..length($data)-$len-1) {
-    if (substr($data,$a,1) == 1) {
-      for $b (0..$len) {
-        substr($data,$a+$b,1) = (0+substr($data,$a+$b,1)) ^ (0+substr($poly,$b,1));
-      }
-    }
-  }
-  my $result = ("0" x (8-($len % 8))).substr($data,-$len);
-  my $reshex = "";
 
-  for (0..$len/4) {
-    $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4)));
-  }
+  my $result = crc_general ($_[0], $_[1], 14, 0,
+                            14,11,2,0);
+  my $reshex = "";
+  $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4))) for (0..14/4);
   $reshex;
 
 }
 
+# Layer3, Layer4 LMCh header CRC
+sub crc6 {
+
+  my $result = crc_general($_[0], $_[1], 6, $_[2] // 0,
+                           6, 4, 3, 0);
+  
+  my $reshex = "";
+  $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4))) for (0..6/4);
+  $reshex;
+}
+
+# Horizontal parity
 # crc82(data, init)
 sub crc82 {
-  my $input  = $_[0];
-  my $init   = $_[1];
-  my $len    = 82;
-  my @coeffs = (82, 77, 76, 71, 67, 66, 56, 52, 48, 40, 36, 34, 24, 22, 18, 10, 4, 0);
-  my $clipbits = 2;
+
+  my $result = crc_general ($_[0], $_[1], 82, $_[2] // 2,
+                           82, 77, 76, 71, 67, 66, 56, 52, 48, 40, 36, 34, 24, 22, 18, 10, 4, 0);
   
+  my $reshex = "";
+  $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4))) for (1..82/4+1);
+  $reshex;
+
+}
+
+# crc_general(data, init, len, clipbits, coeffs)
+sub crc_general {
+  my $input    = shift;
+  my $init     = shift;
+  my $len      = shift;
+  my $clipbits = shift;
+  my @coeffs   = @_;
+
   my $poly   = "0" x ($len+1);
   substr($poly,length($poly)-$_-1,1) = 1 for (@coeffs);
   my $data = unpack("B*",$input);
   substr($data,-$clipbits,$clipbits) = "" if ($clipbits > 0);
-  #$data .= ("0" x $len);
   $init = unpack("B*",$init);
   $data .= substr($init,-$len);
-  #$data .=  sprintf("%0".$len."b",$init);
   for $a (0..length($data)-$len-1) {
     if (substr($data,$a,1) == 1) {
       for $b (0..$len) {
@@ -588,11 +638,5 @@ sub crc82 {
     }
   }
   my $result = ("0" x (8-($len % 8))).substr($data,-$len);
-  my $reshex = "";
-
-  for (1..$len/4+1) {
-    $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4)));
-  }
-  $reshex;
-
-}
+  $result;
+} 
