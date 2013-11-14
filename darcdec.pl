@@ -82,31 +82,35 @@ sub detect {
   }
 
   print "darc bandpass\n";
-  system("sox $input_wav 1_bandpass.wav sinc -L 66000-86000");
+  system("sox $input_wav 1_bandpass.wav sinc -L 66000-86000 gain 30");
 
   print "mark/space split\n";
   system("sox 1_bandpass.wav 2_split_lo.wav sinc -$fc");
   system("sox 1_bandpass.wav 2_split_hi.wav sinc $fc");
 
   print "envelope\n";
-  system("sox -M 2_split_lo.wav 2_split_hi.wav -t .raw -| ./envelope | sox -t .raw -b 16 -e signed -r $fs -c 2 - 3_envelope_filtered.wav sinc -$bps");
+  system("sox --combine multiply 2_split_lo.wav 2_split_lo.wav 3_envelope_lo.wav sinc -$bps");
+  system("sox --combine multiply 2_split_hi.wav 2_split_hi.wav 3_envelope_hi.wav sinc -$bps");
+  system("sox -M 3_envelope_lo.wav 3_envelope_hi.wav 4_envelope_stereo.wav");
   
   print "difference\n";
-  open(S,"sox 3_envelope_filtered.wav -t .raw -|");
-  open(U,"|sox -c 1 -b 16 -e signed -r $fs -t .raw - 4_difference.wav");
-  while (not eof S) {
-    read(S,$a,2);
-    read(S,$b,2);
-    print U pack("s", unpack("s",$a)-unpack("s",$b));
-  }
-  close(U);
-  close(S);
+  system("sox 4_envelope_stereo.wav -c 1 5_difference.wav oops");
+  #open(S,"sox 3_envelope_filtered.wav -t .raw -|");
+  #open(U,"|sox -c 1 -b 16 -e signed -r $fs -t .raw - 4_difference.wav");
+
+  #while (not eof S) {
+  #  read(S,$a,2);
+  #  read(S,$b,2);
+  #  print U pack("s", unpack("s",$a)-unpack("s",$b));
+  #}
+  #close(U);
+  #close(S);
 }
 
-#detect();
+detect();
 
 print "bits\n";
-open(S,"sox 4_difference.wav -t .raw -|");
+open(S,"sox 5_difference.wav -t .raw -|");
 #open(U,"|sox -t .raw -b 16 -e signed -r $fs -c 2 - 5_bits.wav");
 while (not eof S) {
   read(S,$a,2);
@@ -448,7 +452,7 @@ sub servmsg {
 
       $nnl = ($bytes[9]>>2) & 0b1111;
       $nname = "";
-      $nname .= chr($bytes[10+$_]) for (0..$nnl-1);
+      $nname .= chr($bytes[10+$_] // 0) for (0..$nnl-1);
       print "  Network name: \"$nname\"\n";
 
       $pf = ($bytes[9] >> 1) & 0b01;
@@ -526,10 +530,10 @@ sub longmsg {
     #} 
 
   $calc_synd = crc6(substr($dta,0,4), pack("S>",$crc), 6);
-  printf( "  ri $ri  ci $ci  f/l %02b  ext? $ext  add %03x  com? $com  caf? $caf  dlen $dlen  L4crc %02x  synd $calc_synd\n",$fl,$add,$crc);
   #my $synd = crc6();
 
   if ($calc_synd eq "00") {
+    printf( "  ri $ri  ci $ci  f/l %02b  ext? $ext  add %03x  com? $com  caf? $caf  dlen $dlen  L4crc %02x  synd $calc_synd\n",$fl,$add,$crc);
     $dta = substr($dta,4,$dlen);
     $type = ord(substr($dta,0,1)) >> 4;
     $crcf = (ord(substr($dta,0,1)) >> 3) & 1;
@@ -538,7 +542,7 @@ sub longmsg {
     $fragsz = (ord(substr($dta,0,1)) >> 0) & 1 if ($fragl5 == 1);
     $packid = (ord(substr($dta,1,1)) >> 4) if ($fragl5 == 1);
 
-    printf("  L5  typ: %04b  crc? $crcf  compr? $comp  frag? $fragl5  ".($fragl5 == 1 ? "fragsz? $fragsz  " : ""),$type);
+    printf("  L5 hdr typ: %04b  crc? $crcf  compr? $comp  frag? $fragl5  ".($fragl5 == 1 ? "fragsz? $fragsz  " : ""),$type);
     printf("packetid: %01x",$packid) if ($fragl5 == 1);
     print "\n";
     if ($fragl5 == 1) {
@@ -546,8 +550,10 @@ sub longmsg {
     } else {
       $l5crc = substr($dta,-2);
       $dta = substr($dta,1,-2);
-      print "  L5 data: ";
+      print "  L5 data (".($lmsg{'errors'} =~ /1/ ? ":|" : "OK")."): ";
       printsafe($dta);
+      print "\n               ";
+      printhex($dta);
       print "\n";
     }
   } else {
@@ -594,6 +600,13 @@ sub printsafe {
     } else {
       print ".";
     }
+  }
+}
+
+sub printhex {
+  my @chars = split(//,$_[0]);
+  for (@chars) {
+    printf("%02x ",ord($_));
   }
 }
 
