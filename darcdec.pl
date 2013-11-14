@@ -530,9 +530,26 @@ sub longmsg {
   #my $synd = crc6();
 
   if ($calc_synd eq "00") {
-    print "  data:";
-    printsafe(substr($dta,4,$dlen));
+    $dta = substr($dta,4,$dlen);
+    $type = ord(substr($dta,0,1)) >> 4;
+    $crcf = (ord(substr($dta,0,1)) >> 3) & 1;
+    $comp = (ord(substr($dta,0,1)) >> 2) & 1;
+    $fragl5 = (ord(substr($dta,0,1)) >> 1) & 1;
+    $fragsz = (ord(substr($dta,0,1)) >> 0) & 1 if ($fragl5 == 1);
+    $packid = (ord(substr($dta,1,1)) >> 4) if ($fragl5 == 1);
+
+    printf("  L5  typ: %04b  crc? $crcf  compr? $comp  frag? $fragl5  ".($fragl5 == 1 ? "fragsz? $fragsz  " : ""),$type);
+    printf("packetid: %01x",$packid) if ($fragl5 == 1);
     print "\n";
+    if ($fragl5 == 1) {
+      print "  (fragmented, todo)\n";
+    } else {
+      $l5crc = substr($dta,-2);
+      $dta = substr($dta,1,-2);
+      print "  L5 data: ";
+      printsafe($dta);
+      print "\n";
+    }
   } else {
     print "  (invalid header - missed fragment?)\n";
   }
@@ -602,6 +619,20 @@ sub crc6 {
   $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4))) for (0..6/4);
   $reshex;
 }
+
+# Layer5 CRC
+sub crc16 {
+
+  #TODO: bit inversion magic
+
+  my $result = crc_general($_[0], $_[1], 16, $_[2] // 0,
+                           16, 12, 5, 0);
+  
+  my $reshex = "";
+  $reshex .= sprintf("%01x",eval("0b".substr($result,$_*4,4))) for (0..16/4);
+  $reshex;
+}
+
 
 # Horizontal parity
 # crc82(data, init)
