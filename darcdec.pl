@@ -3,6 +3,7 @@ use List::Util qw(sum);
 use Term::ANSIColor;
 use Digest::CRC qw(crc);
 use Devel::Hexdump 'xd';
+use Encode qw(encode decode);
 use 5.010;
 
 $input_wav = "test.wav";
@@ -53,10 +54,15 @@ if (-e "syndrome82") {
     }
   }
 
+  for $len (11..24) {
+    $es = (1<<($len-1)) + 1;
+    push(@estrings, [$len,$es]);
+  }
+
   open(U,">syndrome82");
   for (@estrings) {
     ($len,$es) = @{$_};
-    printf("  ($len-bit %010x)\n",$es);
+    printf("  ($len-bit %010b)\n",$es);
     for $shft (0..190-$len) {
       $bits= ("0" x (190-$shft-$len)) . sprintf("%b",$es) . ("0" x $shft);
       $str = pack("B*",$bits);
@@ -81,58 +87,32 @@ sub detect {
     exit;
   }
 
+  unlink("1_bandpass.wav","2_split_lo.wav","2_split_hi.wav","3_envelope_lo.wav",
+         "3_envelope_hi.wav","4_envelope_stereo.wav","5_difference.wav");
+
   print "darc bandpass\n";
-  system("sox $input_wav 1_bandpass.wav sinc -L 66000-86000 gain 30");
+  system("sox $input_wav 1_bandpass.wav sinc -L 65000-87000 gain 10");
 
   print "mark/space split\n";
   system("sox 1_bandpass.wav 2_split_lo.wav sinc -$fc");
   system("sox 1_bandpass.wav 2_split_hi.wav sinc $fc");
 
   print "envelope\n";
-  system("sox --combine multiply 2_split_lo.wav 2_split_lo.wav 3_envelope_lo.wav sinc -$bps");
-  system("sox --combine multiply 2_split_hi.wav 2_split_hi.wav 3_envelope_hi.wav sinc -$bps");
-  system("sox -M 3_envelope_lo.wav 3_envelope_hi.wav 4_envelope_stereo.wav");
+  system("sox --combine multiply 2_split_lo.wav 2_split_lo.wav 3_envelope_lo.wav sinc -L -$bps");
+  system("sox --combine multiply 2_split_hi.wav 2_split_hi.wav 3_envelope_hi.wav sinc -L -$bps");
+  system("sox --combine merge 3_envelope_lo.wav 3_envelope_hi.wav 4_envelope_stereo.wav");
   
   print "difference\n";
   system("sox 4_envelope_stereo.wav -c 1 5_difference.wav oops");
-  #open(S,"sox 3_envelope_filtered.wav -t .raw -|");
-  #open(U,"|sox -c 1 -b 16 -e signed -r $fs -t .raw - 4_difference.wav");
-
-  #while (not eof S) {
-  #  read(S,$a,2);
-  #  read(S,$b,2);
-  #  print U pack("s", unpack("s",$a)-unpack("s",$b));
-  #}
-  #close(U);
-  #close(S);
 }
 
-detect();
+detect() if ($ARGV[0] // "" =~ /^re/);
 
 print "bits\n";
-open(S,"sox 5_difference.wav -t .raw -|");
-#open(U,"|sox -t .raw -b 16 -e signed -r $fs -c 2 - 5_bits.wav");
+open(S,"sox 5_difference.wav -t .raw -| ./bits |");
 while (not eof S) {
-  read(S,$a,2);
-  $a = unpack("s",$a);
-
-  $bittime += 1/$fs;
-  if ($bittime >= $Tb) {
-    $bittime -= $Tb;
-    layer2($a > 0 ? 0 : 1);
-  }
-  if (($preva//0) * $a < 0) {
-    if ($bittime > $Tb/2) {
-      $bps -= ($bittime-$Tb/2)/$Tb*.1;
-    } elsif ($bittime < $Tb/2) {
-      $bps += ($Tb/2-$bittime)/$Tb*.1;
-    }
-    $Tb = 1/$bps;
-  }
-  #print U pack("s",$a);
-  #print U pack("s",$bittime/$Tb*10000);
-  #print "$bps\n";
-  $preva = $a;
+  read(S,$a,1);
+  layer2(0+$a);
 }
 close(S);
 
@@ -157,7 +137,7 @@ sub layer2 {
 
     push(@words, $shifter);
     if (@words == 18) {
-      $wnum ++;
+      #$wnum ++;
       print "\n";
       print xd pack("S>*",@words) if ($dump);
       $bic = shift(@words);
@@ -214,36 +194,40 @@ sub layer2 {
         $my_par = crc82($dstring,$parstring);
         print " (synd=$my_par)";
 
-        if ($haserror && exists $errstring{$my_par}) {
-          $e = $errstring{$my_par};
-          #print "errstring: ";
-          #print xd $e;
-          #print "len: ".length($e)."\n";
-          for (0..11) {
-            #printf ("%04x --> ",$words[$_]);
-            $words[$_] ^= unpack("S>",substr($e,$_*2,2));
-            #print "[".sprintf("%04x",unpack("S>",substr($e,$_*2,2)))."]";
-            #printf ("%04x\n",$words[$_]);
-          }
-          @data = @words[0..10];
-  
-          # recalc crc
-          $dstring = "";
-          $dstring .= chr($_>>8) . chr($_ & 0xff) for (@data);
-          $crc = $words[11] >> 2;
+        if ($haserror) {
+          if (exists $errstring{$my_par}) {
+            $e = $errstring{$my_par};
+            #print "errstring: ";
+            #print xd $e;
+            #print "len: ".length($e)."\n";
+            for (0..11) {
+              #printf ("%04x --> ",$words[$_]);
+              $words[$_] ^= unpack("S>",substr($e,$_*2,2));
+              #print "[".sprintf("%04x",unpack("S>",substr($e,$_*2,2)))."]";
+              #printf ("%04x\n",$words[$_]);
+            }
+            @data = @words[0..10];
+    
+            # recalc crc
+            $dstring = "";
+            $dstring .= chr($_>>8) . chr($_ & 0xff) for (@data);
+            $crc = $words[11] >> 2;
 
-          $calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
-          $my_crc = crc14($dstring,pack("S>",$crc));
-          $haserror = ($crc != $calc_crc ? 1 : 0);
+            $calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
+            $my_crc = crc14($dstring,pack("S>",$crc));
+            $haserror = ($crc != $calc_crc ? 1 : 0);
 
-          if (!$haserror) {
-            print colored(['green']," ftfy :)");
-            print " synd=$my_crc";
+            if (!$haserror) {
+              print colored(['green']," ftfy :)");
+              print " synd=$my_crc";
+            } else {
+              print colored(['red']," fix fails!");
+            }
+
+            #print "haserror: $haserror (res $my_crc)\n";
           } else {
-            print colored(['red']," fix fails!");
+            print "  uncorrectable";
           }
-
-          #print "haserror: $haserror (res $my_crc)\n";
 
         }
 
@@ -418,7 +402,6 @@ sub servmsg {
       $afnum = $bytes[3] & 0b111111;
       $tf = dec_af($bytes[4]);
       print "    Tuned Frequency: $tf MHz\n";
-      @afs = ();
       for (0..$afnum-1) {
         print "    Alt.  Frequency: ".dec_af($bytes[5+$_])." MHz\n";
       }
@@ -465,7 +448,7 @@ sub servmsg {
     when (0b0110) {
       print "  Synchronous Channel Organization Table (SCOT)\n";
       my $n = 3;
-      while (defined $bytes[$n] && $bytes[$n] != 0) {
+      while (defined $bytes[$n] && defined $bytes[$n+2] && $bytes[$n] != 0) {
         $ext = $bytes[$n] >> 7;
         if ($ext) {
           $sid = ( ($bytes[$n] & 0b1111111) << 7) + ($bytes[$n+1] >> 1);
@@ -511,15 +494,14 @@ sub longmsg {
   } else {
     print colored(['green'],$lmsg{'errors'}."\n");
   }
-  my @hdr = split(//,$dta);
-  $_ = ord($_) for (@hdr);
+  my @hdr = unpack 'C*', $dta; #split(//,$dta);
   $ri = $hdr[0] >> 6;
   $ci = ($hdr[0] >> 4) & 0b11;
   $fl = ($hdr[0] >> 2) & 0b11;
   $ext = ($hdr[0] >> 1) & 1;
   $add = (($hdr[0] & 1) << 8) + $hdr[1];
   if ($ext) {
-    $extadd = $hdr[2] >> 3;
+    #$extadd = $hdr[2] >> 3;
   }
   $com = ($hdr[2+$ext] >> 7) &1;
   $caf = ($hdr[2+$ext] >> 6) &1;
@@ -550,7 +532,7 @@ sub longmsg {
     } else {
       $l5crc = substr($dta,-2);
       $dta = substr($dta,1,-2);
-      print "  L5 data (".($lmsg{'errors'} =~ /1/ ? ":|" : "OK")."): ";
+      print "  L5 data (".($lmsg{'errors'} =~ /1/ ? ":|" : "OK").") to ".sprintf("%03x",$add).": ";
       printsafe($dta);
       print "\n               ";
       printhex($dta);
@@ -593,10 +575,10 @@ sub field {
 }
 
 sub printsafe {
-  my @chars = split(//,$_[0]);
+  my @chars = unpack 'C*', $_[0]; #split(//,$_[0]);
   for (@chars) {
-    if (ord($_) > 31 && ord($_)<127) {
-      print $_;
+    if ( ($_ > 31 && $_<127) || $_ > 160) {
+      print encode("UTF-8",decode("iso-8859-1",chr($_)));
     } else {
       print ".";
     }
@@ -604,9 +586,9 @@ sub printsafe {
 }
 
 sub printhex {
-  my @chars = split(//,$_[0]);
+  my @chars = unpack 'C*', $_[0]; #split(//,$_[0]);
   for (@chars) {
-    printf("%02x ",ord($_));
+    printf("%02x ",$_);
   }
 }
 
