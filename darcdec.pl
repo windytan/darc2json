@@ -2,13 +2,10 @@ use warnings;
 use List::Util qw(sum);
 use Term::ANSIColor;
 use Digest::CRC qw(crc);
-use Devel::Hexdump 'xd';
 use Encode qw(encode decode);
 use 5.010;
 
 $input_wav = "test.wav";
-
-$dump = 0;
 
 @mseq = qw( 1 0 1 0 1 1 1 1 1 0 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1
             1 1 0 0 1 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 1 0 0 1 1 1 0 1 0 0 1 0 0
@@ -137,9 +134,7 @@ sub layer2 {
 
     push(@words, $shifter);
     if (@words == 18) {
-      #$wnum ++;
       print "\n";
-      print xd pack("S>*",@words) if ($dump);
       $bic = shift(@words);
       if (not exists $bics{$bic}) {
         undef $bicnum;
@@ -174,7 +169,6 @@ sub layer2 {
         $dstring .= chr($_>>8) . chr($_ & 0xff) for (@data);
         $crc = $words[11] >> 2;
 
-        #$calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
         $synd = crc14($dstring,pack("S>",$crc));
         $haserror = ($synd eq "0000" ? 0 : 1);
 
@@ -191,20 +185,14 @@ sub layer2 {
 
         $dstring = "";
         $dstring .= chr($_>>8) . chr($_ & 0xff) for (@words[0..11]);
-        $my_par = crc82($dstring,$parstring);
-        print " (synd=$my_par)";
 
         if ($haserror) {
+          $my_par = crc82($dstring,$parstring);
+          print " (synd=$my_par)";
           if (exists $errstring{$my_par}) {
             $e = $errstring{$my_par};
-            #print "errstring: ";
-            #print xd $e;
-            #print "len: ".length($e)."\n";
             for (0..11) {
-              #printf ("%04x --> ",$words[$_]);
               $words[$_] ^= unpack("S>",substr($e,$_*2,2));
-              #print "[".sprintf("%04x",unpack("S>",substr($e,$_*2,2)))."]";
-              #printf ("%04x\n",$words[$_]);
             }
             @data = @words[0..10];
     
@@ -223,8 +211,6 @@ sub layer2 {
             } else {
               print colored(['red']," fix fails!");
             }
-
-            #print "haserror: $haserror (res $my_crc)\n";
           } else {
             print "  uncorrectable";
           }
