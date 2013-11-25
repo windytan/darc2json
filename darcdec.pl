@@ -5,8 +5,6 @@ use Digest::CRC qw(crc);
 use Encode qw(encode decode);
 use 5.010;
 
-$input_wav = "test.wav";
-
 @mseq = qw( 1 0 1 0 1 1 1 1 1 0 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1
             1 1 0 0 1 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 1 0 0 1 1 1 0 1 0 0 1 0 0
             1 1 1 1 0 1 0 1 1 1 0 1 0 1 0 0 0 1 0 0 1 0 0 0 0 1 1 0 0 1 1 1 0 0
@@ -77,36 +75,30 @@ if (-e "syndrome82") {
   close(U);
 }
 
-sub detect {
+system("./rec.sh &");
 
-  if (-s $input_wav < 100) {
-    print "input file is empty!";
-    exit;
-  }
+sleep(7);
 
-  unlink("1_bandpass.wav","2_split_lo.wav","2_split_hi.wav","3_envelope_lo.wav",
-         "3_envelope_hi.wav","4_envelope_stereo.wav","5_difference.wav");
+$format = "-t .raw -r 300k -c 1 -e signed -b 16";
+$sformat = "-t .raw -r 300k -c 2 -e signed -b 16";
 
-  print "darc bandpass\n";
-  system("sox $input_wav 1_bandpass.wav sinc -L 65000-87000 gain 10");
+system("mkfifo $_") for (qw( pipe_01_bp pipe_02_split1 pipe_02_split2 pipe_03_env1 pipe_03_env2 pipe_04_env_st));
 
-  print "mark/space split\n";
-  system("sox 1_bandpass.wav 2_split_lo.wav sinc -$fc");
-  system("sox 1_bandpass.wav 2_split_hi.wav sinc $fc");
+print "mark/space split\n";
 
-  print "envelope\n";
-  system("sox --combine multiply 2_split_lo.wav 2_split_lo.wav 3_envelope_lo.wav sinc -L -$bps");
-  system("sox --combine multiply 2_split_hi.wav 2_split_hi.wav 3_envelope_hi.wav sinc -L -$bps");
-  system("sox --combine merge 3_envelope_lo.wav 3_envelope_hi.wav 4_envelope_stereo.wav");
-  
-  print "difference\n";
-  system("sox 4_envelope_stereo.wav -c 1 5_difference.wav oops");
-}
 
-detect() if ($ARGV[0] // "" =~ /^re/);
+system("tee pipe_01_bp2 < pipe_01_bp | sox $format - $format pipe_02_split1 sinc -$fc &");
+system("sox $format pipe_01_bp2 $format pipe_02_split2 sinc $fc &");
+
+print "envelope\n";
+system("sox $sformat pipe_03_env1 $sformat pipe_04_env_st sinc -L -$bps &");
+sleep(4);
+system("./env &");
+
+print "difference\n";
+open(S,"sox $sformat pipe_04_env_st -c 1 -t .raw - oops | ./bits |");
 
 print "bits\n";
-open(S,"sox 5_difference.wav -t .raw -| ./bits |");
 while (not eof S) {
   read(S,$a,1);
   layer2(0+$a);
