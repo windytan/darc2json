@@ -90,14 +90,10 @@ print "difference\n";
 open(S,"sox $sformat pipe_04_env_st -c 1 -t .raw - oops | ./bits |");
 
 print "bits\n";
+
 while (not eof S) {
   read(S,$a,1);
-  layer2(0+$a);
-}
-close(S);
-
-sub layer2 {
-  my $bit = shift;
+  my $bit = 0+$a;
 
   $bit = descra($bit) if ($insync && @words > 0);
 
@@ -212,6 +208,8 @@ sub layer2 {
   $wordphase ++;
 
 }
+
+close(S);
 
 sub layer3 {
   my $haserror = shift;
