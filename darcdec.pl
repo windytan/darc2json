@@ -1,5 +1,8 @@
 #!/usr/bin/perl
 # Oona Räisänen [windytan] 2013, ISC license
+#
+# Note: This script will create a bunch of FIFOs and
+# background processes
 
 use warnings;
 use Term::ANSIColor;
