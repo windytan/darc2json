@@ -181,7 +181,7 @@ while (not eof S) {
             $crc = $words[11] >> 2;
 
             $calc_synd = crc14($dstring,pack("S>",$crc));
-            $haserror = ($calc_synd == 0 ? 0 : 1);
+            $haserror = ($calc_synd eq "0000" ? 0 : 1);
 
             if (!$haserror) {
               print colored(['green']," ftfy :)");
