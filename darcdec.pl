@@ -1,31 +1,22 @@
+#!/usr/bin/perl
+# Oona Räisänen [windytan] 2013, ISC license
+
 use warnings;
-use List::Util qw(sum);
 use Term::ANSIColor;
-use Digest::CRC qw(crc);
 use Encode qw(encode decode);
 use 5.010;
 
-@mseq = qw( 1 0 1 0 1 1 1 1 1 0 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1
-            1 1 0 0 1 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 1 0 0 1 1 1 0 1 0 0 1 0 0
-            1 1 1 1 0 1 0 1 1 1 0 1 0 1 0 0 0 1 0 0 1 0 0 0 0 1 1 0 0 1 1 1 0 0
-            0 0 1 0 1 1 1 1 0 1 1 0 1 1 0 0 1 1 0 1 0 0 0 0 1 1 1 0 1 1 1 1 0 0
-            0 0 1 1 1 1 1 1 1 1 1 0 0 0 0 0 1 1 1 1 0 1 1 1 1 1 0 0 0 1 0 1 1 1
-            0 0 1 1 0 0 1 0 0 0 0 0 1 0 0 1 0 1 0 0 1 1 1 0 1 1 0 1 0 0 0 1 1 1
-            1 0 0 1 1 1 1 1 0 0 1 1 0 1 1 0 0 0 1 0 1 0 1 0 0 1 0 0 0 1 1 1 0 0
-            0 1 1 0 1 1 0 1 0 1 0 1 1 1 0 0 0 1 0 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0
-            0 0 0 0 1 0 0 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 1 1 1 0 0 1 );
-
 $|++;
-$fs = 300000;
-$fc = 76000;
+$fs  = 300000;
+$fc  = 76000;
 $bps = 16000;
 
 $Tb = 1/$bps;
 
-%bics = (0b0001_0011_0101_1110 => 1,
-         0b0111_0100_1010_0110 => 2,
-         0b1010_0111_1001_0001 => 3,
-         0b1100_1000_0111_0101 => 4);
+%bics = (0xa791 => 1,
+         0x135e => 2,
+         0xc875 => 3,
+         0x74a6 => 4);
 @bickeys = keys %bics;
 
 
@@ -79,14 +70,14 @@ system("./rec.sh &");
 
 sleep(7);
 
-$format = "-t .raw -r 300k -c 1 -e signed -b 16";
+$format  = "-t .raw -r 300k -c 1 -e signed -b 16";
 $sformat = "-t .raw -r 300k -c 2 -e signed -b 16";
 
-system("mkfifo $_") for (qw( pipe_01_bp pipe_02_split1 pipe_02_split2 pipe_03_env1 pipe_03_env2 pipe_04_env_st));
+for (qw( pipe_01_bp pipe_02_split1 pipe_02_split2 pipe_03_env1 pipe_03_env2 pipe_04_env_st)) {
+  system("mkfifo $_") unless (-e $_);
+}
 
 print "mark/space split\n";
-
-
 system("tee pipe_01_bp2 < pipe_01_bp | sox $format - $format pipe_02_split1 sinc -$fc &");
 system("sox $format pipe_01_bp2 $format pipe_02_split2 sinc $fc &");
 
@@ -193,13 +184,12 @@ sub layer2 {
             $dstring .= chr($_>>8) . chr($_ & 0xff) for (@data);
             $crc = $words[11] >> 2;
 
-            $calc_crc = crc($dstring,14,0x0000,0x0000,0,0x0805,0,0);
-            $my_crc = crc14($dstring,pack("S>",$crc));
-            $haserror = ($crc != $calc_crc ? 1 : 0);
+            $calc_synd = crc14($dstring,pack("S>",$crc));
+            $haserror = ($calc_synd == 0 ? 0 : 1);
 
             if (!$haserror) {
               print colored(['green']," ftfy :)");
-              print " synd=$my_crc";
+              print " synd=$calc_synd";
             } else {
               print colored(['red']," fix fails!");
             }
@@ -493,16 +483,18 @@ sub longmsg {
   #my $synd = crc6();
 
   if ($calc_synd eq "00") {
-    printf( "  ri $ri  ci $ci  f/l %02b  ext? $ext  add %03x  com? $com  caf? $caf  dlen $dlen  L4crc %02x  synd $calc_synd\n",$fl,$add,$crc);
-    $dta = substr($dta,4,$dlen);
-    $type = ord(substr($dta,0,1)) >> 4;
-    $crcf = (ord(substr($dta,0,1)) >> 3) & 1;
-    $comp = (ord(substr($dta,0,1)) >> 2) & 1;
+    printf( "  ri $ri  ci $ci  f/l %02b  ext? $ext  add %03x  com? $com  caf? $caf".
+            " dlen $dlen  L4crc %02x  synd $calc_synd\n",$fl,$add,$crc);
+    $dta    = substr($dta,4,$dlen);
+    $type   = ord(substr($dta,0,1)) >> 4;
+    $crcf   = (ord(substr($dta,0,1)) >> 3) & 1;
+    $comp   = (ord(substr($dta,0,1)) >> 2) & 1;
     $fragl5 = (ord(substr($dta,0,1)) >> 1) & 1;
     $fragsz = (ord(substr($dta,0,1)) >> 0) & 1 if ($fragl5 == 1);
     $packid = (ord(substr($dta,1,1)) >> 4) if ($fragl5 == 1);
 
-    printf("  L5 hdr typ: %04b  crc? $crcf  compr? $comp  frag? $fragl5  ".($fragl5 == 1 ? "fragsz? $fragsz  " : ""),$type);
+    printf("  L5 hdr typ: %04b  crc? $crcf  compr? $comp  frag? $fragl5  ".
+           ($fragl5 == 1 ? "fragsz? $fragsz  " : ""),$type);
     printf("packetid: %01x",$packid) if ($fragl5 == 1);
     print "\n";
     if ($fragl5 == 1) {
@@ -525,6 +517,15 @@ sub longmsg {
 
 sub scramble_init {
   $scramble_ptr = 0;
+  @mseq = qw( 1 0 1 0 1 1 1 1 1 0 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1
+              1 1 0 0 1 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 1 0 0 1 1 1 0 1 0 0 1 0 0
+              1 1 1 1 0 1 0 1 1 1 0 1 0 1 0 0 0 1 0 0 1 0 0 0 0 1 1 0 0 1 1 1 0 0
+              0 0 1 0 1 1 1 1 0 1 1 0 1 1 0 0 1 1 0 1 0 0 0 0 1 1 1 0 1 1 1 1 0 0
+              0 0 1 1 1 1 1 1 1 1 1 0 0 0 0 0 1 1 1 1 0 1 1 1 1 1 0 0 0 1 0 1 1 1
+              0 0 1 1 0 0 1 0 0 0 0 0 1 0 0 1 0 1 0 0 1 1 1 0 1 1 0 1 0 0 0 1 1 1
+              1 0 0 1 1 1 1 1 0 0 1 1 0 1 1 0 0 0 1 0 1 0 1 0 0 1 0 0 0 1 1 1 0 0
+              0 1 1 0 1 1 0 1 0 1 0 1 1 1 0 0 0 1 0 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0
+              0 0 0 0 1 0 0 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 1 1 1 0 0 1 );
 }
 
 sub dec_af {
