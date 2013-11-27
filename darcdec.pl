@@ -4,6 +4,7 @@
 # Note: This script will create a bunch of FIFOs and
 # background processes
 # and it will mess up your machine yo
+# and not clean up
 
 use warnings;
 use Term::ANSIColor;
@@ -17,10 +18,7 @@ $bps = 16000;
 
 $Tb = 1/$bps;
 
-%bics = (0xa791 => 1,
-         0x135e => 2,
-         0xc875 => 3,
-         0x74a6 => 4);
+%bics    = (0xa791 => 1, 0x135e => 2, 0xc875 => 3, 0x74a6 => 4);
 @bickeys = keys %bics;
 
 for $w ( 0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd, 0xb343,
@@ -83,7 +81,7 @@ $format  = "-t .raw -r 300k -c 1 -e signed -b 16";
 $sformat = "-t .raw -r 300k -c 2 -e signed -b 16";
 
 for (qw( pipe_01_bp pipe_02_split1 pipe_02_split2 pipe_03_env1 pipe_03_env2 pipe_04_env_st)) {
-  system("mkfifo $_") unless (-e $_);
+  system("mkfifo $_") unless (-p $_);
 }
 
 print "mark/space split\n";
@@ -127,7 +125,7 @@ while (not eof S) {
       if (not exists $bics{$bic}) {
         undef $bicnum;
 
-        # etsi lähin
+        # lähin kelpaa
         for $b (0..3) {
           $t = $bic ^ $bickeys[$b];
           $n = (unpack '%8b*',pack 'S>',$t);
@@ -179,9 +177,7 @@ while (not eof S) {
           print " (synd=$my_par)";
           if (exists $errstring{$my_par}) {
             $e = $errstring{$my_par};
-            for (0..11) {
-              $words[$_] ^= unpack("S>",substr($e,$_*2,2));
-            }
+            $words[$_] ^= unpack("S>",substr($e,$_*2,2)) for (0..11);
             @data = @words[0..10];
     
             # recalc crc
@@ -238,14 +234,14 @@ sub layer3 {
     printf("CID: %x\n",$cid);
     print "Type: $type ";
     given($type) {
-      when (0b0000) { print "Channel Organization Table (COT)\n"; }
-      when (0b0001) { print "Alternative Frequency Table (AFT)\n"; }
-      when (0b0010) { print "Service Alternative Frequency Table (SAFT)\n"; }
+      when (0b0000) { print "Channel Organization Table (COT)\n";                    }
+      when (0b0001) { print "Alternative Frequency Table (AFT)\n";                   }
+      when (0b0010) { print "Service Alternative Frequency Table (SAFT)\n";          }
       when (0b0011) { print "Time, Date, Position and Network name Table (TDPNT)\n"; }
-      when (0b0100) { print "Service Name Table (SNT)\n"; }
-      when (0b0101) { print "Time and Date Table (TDT)\n"; }
-      when (0b0110) { print "Synchronous Channel Organization Table (SCOT)\n"; }
-      default { print colored(['red'],"err\n"); }
+      when (0b0100) { print "Service Name Table (SNT)\n";                            }
+      when (0b0101) { print "Time and Date Table (TDT)\n";                           }
+      when (0b0110) { print "Synchronous Channel Organization Table (SCOT)\n";       }
+      default       { print colored(['red'],"err\n");                                }
     }
     print "Network ID: $nid\n";
     print "Block #$bln\n";
@@ -268,9 +264,7 @@ sub layer3 {
     $servmsgbuf{'prevblock'} = $bln;
     $servmsgbuf{'errors'} .= $haserror;
 
-    if ($lf) {
-      servmsg();
-    }
+    servmsg() if ($lf);
 
   } elsif ($SILCh == 0x9) {
     print "Short Message Channel (SMCh)\n";
@@ -300,9 +294,8 @@ sub layer3 {
     $calc_synd = crc6(pack("S>",$data[0]), chr($lm_crc), 6);
     printf("L3-hdr-crc: %02x (synd: $calc_synd)\n",$lm_crc);
     print "sc:$sc\n";
-    if ($sc != ((($prev_sc//0)+1) % 16)) {
-      %lmsg = ();
-    }
+    
+    %lmsg = () if ($sc != ((($prev_sc//0)+1) % 16));
 
     print "Real-Time\n" if ($di);
     print "Last Fragment\n" if ($lf);
@@ -319,9 +312,7 @@ sub layer3 {
     printsafe ($dta);
     print "\n";
     
-    if ($lf) {
-      longmsg();
-    }
+    longmsg() if ($lf);
     $prev_sc = $sc;
 
   } elsif ($SILCh == 0xB) {
@@ -346,11 +337,8 @@ sub layer3 {
 sub servmsg {
   return if (not exists $servmsgbuf{'ecc'});
   print "Service Message (errs ";
-  if ($servmsgbuf{'errors'} =~ /1/) {
-    print colored(['red'],$servmsgbuf{'errors'});
-  } else {
-    print colored(['green'],$servmsgbuf{'errors'});
-  }
+  print colored([($servmsgbuf{'errors'} =~ /1/ ? 'red' : 'green')],
+    $servmsgbuf{'errors'});
   
   print ") [[\n";
   @bytes = @{$servmsgbuf{'data'}};
@@ -377,10 +365,7 @@ sub servmsg {
       $afnum = $bytes[3] & 0b111111;
       $tf = dec_af($bytes[4]);
       print "    Tuned Frequency: $tf MHz\n";
-      for (0..$afnum-1) {
-        print "    Alt.  Frequency: ".dec_af($bytes[5+$_])." MHz\n";
-      }
-
+      print "    Alt.  Frequency: ".dec_af($bytes[5+$_])." MHz\n" for (0..$afnum-1);
     }
     when (0b0101) {
       print "  Time and Date Table (TDT)\n";
@@ -394,21 +379,18 @@ sub servmsg {
       $year  = int(($mjd - 15078.2)/365.25);
       $month = int(($mjd-14956.1-int($year * 365.25))/30.6001);
       $day   = $mjd - 14956-int($year*365.25)-int($month*30.6001);
-      if ($month == 14 || $month == 15) {
-        $k = 1;
-      } else {
-        $k = 0;
-      }
+      $k     = (($month == 14 || $month == 15) ? 1 : 0);
+      
       $year += $k;
       $month = $month - 1 - $k*12;
 
       printf("  Time: %04d-%02d-%02d %02d:%02d:%02d\n",
         $year+1900, $month, $day,
-        ($time[0]>>2)&0b11111,
-        (($time[0]&0b11)<<4) + ($time[1] >>4),
-        (($time[1]&0b1111)<<2) + ($time[2]>>6));
+        ($time[0] >> 2) & 0b11111,
+        (($time[0] & 0b11)   << 4) + ($time[1] >>4),
+        (($time[1] & 0b1111) << 2) + ($time[2]>>6));
 
-      $nnl = ($bytes[9]>>2) & 0b1111;
+      $nnl = ($bytes[9] >> 2) & 0b1111;
       $nname = "";
       $nname .= chr($bytes[10+$_] // 0) for (0..$nnl-1);
       print "  Network name: \"$nname\"\n";
@@ -464,11 +446,7 @@ sub longmsg {
 
   print "Long Message: [[";
   print "\n  errors: ";
-  if ($lmsg{'errors'} =~ /1/) {
-    print colored(['red'],$lmsg{'errors'}."\n");
-  } else {
-    print colored(['green'],$lmsg{'errors'}."\n");
-  }
+  print colored([($lmsg{'errors'} =~ /1/ ? 'red' : 'green')],$lmsg{'errors'}."\n");
   my @hdr = unpack 'C*', $dta; #split(//,$dta);
   $ri = $hdr[0] >> 6;
   $ci = ($hdr[0] >> 4) & 0b11;
@@ -552,8 +530,7 @@ sub field {
 }
 
 sub printsafe {
-  my @chars = unpack 'C*', $_[0]; #split(//,$_[0]);
-  for (@chars) {
+  for ( unpack 'C*', $_[0] ) {
     if ( ($_ > 31 && $_<127) || $_ > 160) {
       print encode("UTF-8",decode("iso-8859-1",chr($_)));
     } else {
@@ -563,10 +540,7 @@ sub printsafe {
 }
 
 sub printhex {
-  my @chars = unpack 'C*', $_[0]; #split(//,$_[0]);
-  for (@chars) {
-    printf("%02x ",$_);
-  }
+  printf("%02x ",$_) for ( unpack 'C*', $_[0] );
 }
 
 # Layer2 CRC
@@ -619,6 +593,7 @@ sub crc82 {
 
 }
 
+# CRC with arbitrary length polynomials using string magic
 # crc_general(data, init, len, clipbits, coeffs)
 sub crc_general {
   my $input    = shift;
