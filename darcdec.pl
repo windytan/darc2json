@@ -5,6 +5,11 @@
 # background processes
 # and it will mess up your machine yo
 # and not clean up
+#
+# requirements:
+#   install sox
+#   compile env
+#   have rtl_sdr
 
 use warnings;
 use Term::ANSIColor;
