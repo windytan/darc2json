@@ -3,6 +3,7 @@
 #
 # Note: This script will create a bunch of FIFOs and
 # background processes
+# and it will mess up your machine yo
 
 use warnings;
 use Term::ANSIColor;
@@ -22,6 +23,11 @@ $Tb = 1/$bps;
          0x74a6 => 4);
 @bickeys = keys %bics;
 
+for $w ( 0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd, 0xb343,
+         0xbc3f, 0xe0f7, 0xc5cc, 0x8253, 0xb479, 0xf362, 0xa471, 0xb571,
+         0x3110, 0x0846, 0x1390 ) {
+  push(@mseq, ($w>>(15-$_))&1) for (0..15);
+}
 
 if (-e "syndrome82") {
   open(S,"syndrome82");
@@ -518,15 +524,6 @@ sub longmsg {
 
 sub scramble_init {
   $scramble_ptr = 0;
-  @mseq = qw( 1 0 1 0 1 1 1 1 1 0 1 0 1 0 1 0 1 0 0 0 0 0 0 1 0 1 0 0 1 0 1 0 1 1
-              1 1 0 0 1 0 1 1 1 0 1 1 1 0 0 0 0 0 0 1 1 1 0 0 1 1 1 0 1 0 0 1 0 0
-              1 1 1 1 0 1 0 1 1 1 0 1 0 1 0 0 0 1 0 0 1 0 0 0 0 1 1 0 0 1 1 1 0 0
-              0 0 1 0 1 1 1 1 0 1 1 0 1 1 0 0 1 1 0 1 0 0 0 0 1 1 1 0 1 1 1 1 0 0
-              0 0 1 1 1 1 1 1 1 1 1 0 0 0 0 0 1 1 1 1 0 1 1 1 1 1 0 0 0 1 0 1 1 1
-              0 0 1 1 0 0 1 0 0 0 0 0 1 0 0 1 0 1 0 0 1 1 1 0 1 1 0 1 0 0 0 1 1 1
-              1 0 0 1 1 1 1 1 0 0 1 1 0 1 1 0 0 0 1 0 1 0 1 0 0 1 0 0 0 1 1 1 0 0
-              0 1 1 0 1 1 0 1 0 1 0 1 1 1 0 0 0 1 0 0 1 1 0 0 0 1 0 0 0 1 0 0 0 0
-              0 0 0 0 1 0 0 0 0 1 0 0 0 1 1 0 0 0 0 1 0 0 1 1 1 0 0 1 );
 }
 
 sub dec_af {
