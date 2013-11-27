@@ -1,4 +1,7 @@
-/* Oona Räisänen [windytan] 2013, ISC license
+/* détecteur des enveloppes trés rapide et beau
+ * [sans LPF]
+ *
+ * (c) Oona Räisänen [windytan] 2013, ISC license
  * 
  * gcc -O3 -o env env.c
  * */
