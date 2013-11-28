@@ -9,7 +9,9 @@
 # requirements:
 #   install sox
 #   compile env
+#   compile bits
 #   have rtl_sdr
+#   run this script
 
 use warnings;
 use Term::ANSIColor;
