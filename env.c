@@ -1,5 +1,5 @@
-/* détecteur d'enveloppe trés rapide et beau
- * [sans LPF]
+/* a fast and beautiful envelope detector
+ * [without LPF]
  *
  * (c) Oona Räisänen [windytan] 2013, ISC license
  * 
