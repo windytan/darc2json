@@ -27,7 +27,7 @@
 #include <sndfile.h>
 #endif
 
-namespace darcdec {
+namespace darc2json {
 
 class MPXReader {
  public:
@@ -79,5 +79,5 @@ class AsciiBitReader {
   bool feed_thru_;
 };
 
-}  // namespace darcdec
+}  // namespace darc2json
 #endif  // INPUT_H_

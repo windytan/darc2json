@@ -1,5 +1,5 @@
 /*
- * darcdec - DARC decoder
+ * darc2json - DARC decoder
  * Copyright (c) Oona Räisänen OH2EIQ (windyoona@gmail.com)
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -24,11 +24,11 @@
 #include "src/layer2.h"
 #include "src/layer3.h"
 
-namespace darcdec {
+namespace darc2json {
 
 void PrintUsage() {
   std::cout <<
-    "radio_command | darcdec [OPTIONS]\n"
+    "radio_command | darc2json [OPTIONS]\n"
     "\n"
     "By default, a 171 kHz single-channel 16-bit MPX signal is expected via\n"
     "stdin.\n"
@@ -54,7 +54,7 @@ void PrintUsage() {
     "-l, --loctable DIR     Load TMC location table from a directory in TMC\n"
     "                       Exchange format.\n"
     "\n"
-    "-p, --show-partial     Under noisy conditions, darcdec may not be able to\n"
+    "-p, --show-partial     Under noisy conditions, darc2json may not be able to\n"
     "                       fully receive all information. Multi-group data\n"
     "                       such as PS names, RadioText, and alternative\n"
     "                       frequencies are especially vulnerable. This option\n"
@@ -89,7 +89,7 @@ void PrintVersion() {
 }
 
 Options GetOptions(int argc, char** argv) {
-  darcdec::Options options;
+  darc2json::Options options;
 
   static struct option long_options[] = {
     { "input-bits",    no_argument, 0, 'b'},
@@ -113,7 +113,7 @@ Options GetOptions(int argc, char** argv) {
          &option_index)) >= 0) {
     switch (option_char) {
       case 'b':
-        options.input_type = darcdec::INPUT_ASCIIBITS;
+        options.input_type = darc2json::INPUT_ASCIIBITS;
         break;
       case 'e':
         options.feed_thru = true;
@@ -124,18 +124,18 @@ Options GetOptions(int argc, char** argv) {
       case 'f':
 #ifdef HAVE_SNDFILE
         options.sndfilename = std::string(optarg);
-        options.input_type = darcdec::INPUT_MPX_SNDFILE;
+        options.input_type = darc2json::INPUT_MPX_SNDFILE;
 #else
-        std::cerr << "error: darcdec was compiled without libsndfile"
+        std::cerr << "error: darc2json was compiled without libsndfile"
                   << '\n';
         options.just_exit = true;
 #endif
         break;
       case 'h':
-        options.input_type = darcdec::INPUT_HEX;
+        options.input_type = darc2json::INPUT_HEX;
         break;
       case 'x':
-        options.output_type = darcdec::OUTPUT_HEX;
+        options.output_type = darc2json::OUTPUT_HEX;
         break;
       case 'p':
         options.show_partial = true;
@@ -175,30 +175,30 @@ Options GetOptions(int argc, char** argv) {
   return options;
 }
 
-}  // namespace darcdec
+}  // namespace darc2json
 
 int main(int argc, char** argv) {
-  darcdec::Options options = darcdec::GetOptions(argc, argv);
+  darc2json::Options options = darc2json::GetOptions(argc, argv);
 
   if (options.just_exit)
     return EXIT_FAILURE;
 
 #ifndef HAVE_LIQUID
-  if (options.input_type == darcdec::INPUT_MPX_STDIN ||
-      options.input_type == darcdec::INPUT_MPX_SNDFILE) {
-    std::cerr << "error: darcdec was compiled without liquid-dsp"
+  if (options.input_type == darc2json::INPUT_MPX_STDIN ||
+      options.input_type == darc2json::INPUT_MPX_SNDFILE) {
+    std::cerr << "error: darc2json was compiled without liquid-dsp"
               << '\n';
     return EXIT_FAILURE;
   }
 #endif
 
-  darcdec::Layer2 layer2;
-  darcdec::Layer3 layer3;
+  darc2json::Layer2 layer2;
+  darc2json::Layer3 layer3;
 
-  darcdec::Subcarrier subc(options);
+  darc2json::Subcarrier subc(options);
   while (!subc.eof()) {
-    std::vector<darcdec::L2Block> blocks = layer2.PushBit(subc.NextBit());
-    for (darcdec::L2Block l2block : blocks) {
+    std::vector<darc2json::L2Block> blocks = layer2.PushBit(subc.NextBit());
+    for (darc2json::L2Block l2block : blocks) {
       layer3.push_block(l2block);
     }
   }

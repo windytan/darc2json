@@ -18,7 +18,7 @@
 
 #include <cassert>
 
-namespace darcdec {
+namespace darc2json {
 
 const uint16_t kBic1 = 0x135E;
 const uint16_t kBic2 = 0x74A6;
@@ -209,4 +209,4 @@ std::vector<L2Block> Layer2::PushBit(int bit) {
   return blocks;
 }
 
-}  // namespace darcdec
+}  // namespace darc2json

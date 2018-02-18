@@ -20,7 +20,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace darcdec {
+namespace darc2json {
 
 namespace {
 
@@ -136,4 +136,4 @@ bool AsciiBitReader::eof() const {
   return is_eof_;
 }
 
-}  // namespace darcdec
+}  // namespace darc2json

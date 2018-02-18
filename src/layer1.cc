@@ -33,7 +33,7 @@
 #include "src/input.h"
 #include "src/liquid_wrappers.h"
 
-namespace darcdec {
+namespace darc2json {
 
 namespace {
 
@@ -171,6 +171,6 @@ float Subcarrier::t() const {
 }
 #endif
 
-}  // namespace darcdec
+}  // namespace darc2json
 
 #endif  // HAVE_LIQUID

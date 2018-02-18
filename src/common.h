@@ -19,7 +19,7 @@
 
 #include <string>
 
-namespace darcdec {
+namespace darc2json {
 
 const float kTargetSampleRate_Hz  = 228000.0f;
 const int   kNumBlerAverageGroups = 12;
@@ -49,5 +49,5 @@ struct Options {
   std::string time_format;
 };
 
-}  // namespace darcdec
+}  // namespace darc2json
 #endif  // COMMON_H_

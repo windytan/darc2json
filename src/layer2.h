@@ -24,7 +24,7 @@
 
 #include "src/common.h"
 
-namespace darcdec {
+namespace darc2json {
 
 enum eBic { BIC1, BIC2, BIC3, BIC4 };
 
@@ -71,6 +71,6 @@ class Layer2 {
   bool in_sync_;
 };
 
-}  // namespace darcdec
+}  // namespace darc2json
 
 #endif  // LAYER2_H_

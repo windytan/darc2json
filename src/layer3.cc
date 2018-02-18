@@ -22,7 +22,7 @@
 
 #include "src/layer2.h"
 
-namespace darcdec {
+namespace darc2json {
 
 std::string TimeString(int hours, int minutes, int seconds) {
   std::stringstream ss;
@@ -218,4 +218,4 @@ void Layer3::push_block(const L2Block& l2block) {
 
 }
 
-}  // namespace darcdec
+}  // namespace darc2json

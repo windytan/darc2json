@@ -30,7 +30,7 @@
 
 #ifdef HAVE_LIQUID
 
-namespace darcdec {
+namespace darc2json {
 
 class BiphaseDecoder {
  public:
@@ -89,7 +89,7 @@ class Subcarrier {
   MPXReader* mpx_;
 };
 
-}  // namespace darcdec
+}  // namespace darc2json
 
 #endif  // HAVE_LIQUID
 #endif  // LAYER1_H_

@@ -27,7 +27,7 @@
 #include "src/common.h"
 #include "src/layer2.h"
 
-namespace darcdec {
+namespace darc2json {
 
 class SechBlock {
  public:
@@ -77,6 +77,6 @@ class Layer3 {
   Json::Value json_;
 };
 
-}  // namespace darcdec
+}  // namespace darc2json
 
 #endif  // LAYER3_H_
