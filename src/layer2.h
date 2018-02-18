@@ -28,6 +28,9 @@ namespace darcdec {
 
 enum eBic { BIC1, BIC2, BIC3, BIC4 };
 
+uint32_t field(const std::vector<int>& bits,
+               int start_at, int length);
+
 class Descrambler {
  public:
   Descrambler();
@@ -46,8 +49,8 @@ class L2Block {
   bool complete() const;
   int BicNum() const;
   void print() const;
-  uint16_t silch() const;
   bool crc_ok() const;
+  std::vector<int> information_bits() const;
 
  private:
   eBic bic_;

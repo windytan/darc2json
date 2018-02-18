@@ -22,6 +22,7 @@
 #include "src/common.h"
 #include "src/layer1.h"
 #include "src/layer2.h"
+#include "src/layer3.h"
 
 namespace darcdec {
 
@@ -141,8 +142,8 @@ Options GetOptions(int argc, char** argv) {
         break;
       case 'r':
         options.samplerate = std::atoi(optarg);
-        if (options.samplerate < 128000.f) {
-          std::cerr << "error: sample rate must be 128000 Hz or higher"
+        if (options.samplerate < 180000.f) {
+          std::cerr << "error: sample rate must be 180000 Hz or higher"
                     << '\n';
           options.just_exit = true;
         }
@@ -192,13 +193,13 @@ int main(int argc, char** argv) {
 #endif
 
   darcdec::Layer2 layer2;
+  darcdec::Layer3 layer3;
 
   darcdec::Subcarrier subc(options);
   while (!subc.eof()) {
     std::vector<darcdec::L2Block> blocks = layer2.PushBit(subc.NextBit());
-    for (darcdec::L2Block block : blocks) {
-      printf("block %d: ", block.BicNum());
-      block.print();
+    for (darcdec::L2Block l2block : blocks) {
+      layer3.push_block(l2block);
     }
   }
 

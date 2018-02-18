@@ -141,11 +141,13 @@ int L2Block::BicNum() const {
   return bic_ + 1;
 }
 
-bool L2Block::crc_ok() const {
-  std::vector<int> information_bits(bits_.begin(), bits_.begin() + 176);
+std::vector<int> L2Block::information_bits() const {
+  return std::vector<int>(bits_.begin(), bits_.begin() + 176);
+}
 
+bool L2Block::crc_ok() const {
   std::vector<int> crc_calc =
-    crc(information_bits, {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1});
+    crc(information_bits(), {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1});
   std::vector<int> crc_rx(bits_.begin() + 176, bits_.begin() + 176 + 14);
 
   bool match = true;
@@ -159,76 +161,10 @@ bool L2Block::crc_ok() const {
   return match;
 }
 
-uint16_t L2Block::silch() const {
-  return field(bits_, 0, 4);
-}
-
 void L2Block::print() const {
   if (bic_ == BIC4) {
     printf("(vertical parity)");
   } else if (crc_ok()) {
-
-    bool last_fragment;
-    int data_update, country_id, data_type, network_id, block_num;
-    std::vector<std::string> sech_types(
-        {"COT", "AFT", "SAFT", "TDPNT", "SNT", "TDT", "SCOT"});
-
-    if (silch() == 0x8) {
-      printf("SeCH ");
-      last_fragment = field(bits_, 5, 1);
-      data_update   = field(bits_, 6, 2);
-      country_id    = field(bits_, 8, 4);
-      data_type     = field(bits_, 12, 4);
-      network_id    = field(bits_, 16, 4);
-      block_num     = field(bits_, 20, 4);
-      printf("LF[%s] DUP:%d CID:%d NID:%d BLN:%d ",
-          last_fragment ? "x" : " ", data_update, country_id, network_id, block_num);
-      printf("TYPE: %s", data_type < (int)sech_types.size() ? sech_types[data_type].c_str() : "err");
-
-      if (block_num == 0 && last_fragment) {
-        std::vector<int> data_bits(bits_.begin() + 24, bits_.end());
-        int ecc = field(data_bits, 0, 8);
-        int tseid = field(data_bits, 8, 7);
-        int message_len = field(data_bits, 15, 9);
-        printf(" len:%d ", message_len);
-
-
-        if (data_type == 0x5) {
-          std::vector<int> time_bits(data_bits.begin() + 3*8, data_bits.begin() + 7*8);
-          std::vector<int> date_bits(data_bits.begin() + 7*8, data_bits.begin() + 10*8);
-
-          int name_len = field(date_bits, 2*8 + 2, 4);
-          printf ("name:\"");
-          for (int i = 0; i < name_len; i++) {
-            char c = field(data_bits, (10 + i) * 8, 8);
-            printf("%c", c);
-          }
-          printf("\" ");
-
-          bool has_position = field(date_bits, 2*9 + 6, 1);
-          printf("has_position:%d ",has_position);
-
-          if (has_position) {
-
-          }
-        }
-      }
-    } else if (silch() == 0x9) {
-        printf("SMCh ");
-    } else if (silch() == 0xA) {
-        printf("LMCh ");
-    } else if (silch() == 0xB) {
-        printf("BMCh ");
-        bool is_realtime = field(bits_, 4, 1);
-        int subchannel = field(bits_, 5, 3);
-        printf("subch:%d ", subchannel);
-    } else {
-      for (int i = 0; i < 4; i++)
-        printf("%d", bits_[i]);
-      printf(" ");
-    }
-
-    printf(" crc %s", crc_ok() ? "OK" : "FAIL");
 
     /*for (int i = 4; i < 176; i++)
       printf("%d", bits_[i]);
@@ -258,7 +194,8 @@ std::vector<L2Block> Layer2::PushBit(int bit) {
   if (in_sync_) {
     block_.PushBit(bit);
     if (block_.complete()) {
-      blocks.push_back(block_);
+      if (block_.crc_ok())
+        blocks.push_back(block_);
       in_sync_ = false;
     }
   } else {
