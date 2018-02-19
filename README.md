@@ -71,6 +71,10 @@ stdin.
 -r, --samplerate RATE  Set stdin sample frequency in Hz. Will resample
                        (slow) if this differs from 228000 Hz.
 
+-t, --timestamp FORMAT Add time of decoding to JSON groups; see
+                       man strftime for formatting options (or
+                       try "%c").
+
 -v, --version          Print version string.
 ```
 

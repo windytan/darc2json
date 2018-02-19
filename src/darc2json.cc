@@ -193,7 +193,7 @@ int main(int argc, char** argv) {
 #endif
 
   darc2json::Layer2 layer2;
-  darc2json::Layer3 layer3;
+  darc2json::Layer3 layer3(options);
 
   darc2json::Subcarrier subc(options);
   while (!subc.eof()) {

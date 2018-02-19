@@ -31,6 +31,23 @@ std::string TimeString(int hours, int minutes, int seconds) {
   return ss.str();
 }
 
+std::string TimePointToString(
+    const std::chrono::time_point<std::chrono::system_clock>& timepoint,
+    const std::string& format) {
+  std::time_t t = std::chrono::system_clock::to_time_t(timepoint);
+  std::tm tm = *std::localtime(&t);
+
+  std::string result;
+  char buffer[64];
+  if (strftime(buffer, sizeof(buffer), format.c_str(), &tm) > 0) {
+    result = std::string(buffer);
+  } else {
+    result = "(format error)";
+  }
+
+  return result;
+}
+
 SechBlock::SechBlock(const std::vector<int>& info_bits) :
   is_last_fragment_(field(info_bits, 5, 1)),
   data_update_(field(info_bits, 6, 2)),
@@ -215,7 +232,15 @@ void Layer3::push_block(const L2Block& l2block) {
   }
   //printf("\n");
 
+void Layer3::print_line(Json::Value json) {
+  if (options_.timestamp)
+    json["rx_time"] = TimePointToString(std::chrono::system_clock::now(),
+                                        options_.time_format);
 
+  std::stringstream ss;
+  writer_->write(json, &ss);
+  ss << '\n';
+  std::cout << ss.str() << std::flush;
 }
 
 }  // namespace darc2json
