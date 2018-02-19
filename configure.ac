@@ -1,5 +1,5 @@
 AC_PREREQ([2.69])
-AC_INIT([darc2json], [0.2], [oona@kapsi.fi], [darc2json],
+AC_INIT([darc2json], [0.2-SNAPSHOT], [oona@kapsi.fi], [darc2json],
         [https://github.com/windytan/darc2json])
 AM_INIT_AUTOMAKE([1.10 -Wall -Werror foreign subdir-objects])
 AC_CONFIG_HEADERS([config.h])
