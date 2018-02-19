@@ -29,6 +29,10 @@
 
 namespace darc2json {
 
+enum eSechDataType {
+  kTypeCOT = 0, kTypeAFT, kTypeSAFT, kTypeTDPNT, kTypeSNT, kTypeTDT, kTypeSCOT
+};
+
 class SechBlock {
  public:
   SechBlock(const std::vector<int>& info_bits);
@@ -56,8 +60,11 @@ class ServiceMessage {
   ServiceMessage();
   void push_block(const SechBlock& block);
   bool is_complete() const;
-  void print(std::unique_ptr<Json::StreamWriter>& writer) const;
+  Json::Value to_json() const;
   std::vector<int> data_bits() const;
+  int country_id() const;
+  int network_id() const;
+  int data_type() const;
 
  private:
   std::vector<SechBlock> blocks_;
@@ -65,16 +72,17 @@ class ServiceMessage {
 
 class Layer3 {
  public:
-  Layer3();
+  Layer3(const Options& options);
   ~Layer3();
   void push_block(const L2Block& block);
+  void print_line(Json::Value json);
 
  private:
+  Options options_;
   ServiceMessage service_message_;
 
   Json::StreamWriterBuilder writer_builder_;
   std::unique_ptr<Json::StreamWriter> writer_;
-  Json::Value json_;
 };
 
 }  // namespace darc2json

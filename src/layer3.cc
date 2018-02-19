@@ -130,36 +130,43 @@ std::vector<int> ServiceMessage::data_bits() const {
   return result;
 }
 
-void ServiceMessage::print(std::unique_ptr<Json::StreamWriter>& writer) const {
-  if (!is_complete())
-    return;
+int ServiceMessage::country_id() const {
+  return blocks_.empty() ? 0 : blocks_[0].country_id();
+}
 
+int ServiceMessage::network_id() const {
+  return blocks_.empty() ? 0 : blocks_[0].network_id();
+}
+
+int ServiceMessage::data_type() const {
+  return blocks_.empty() ? 0 : blocks_[0].data_type();
+}
+
+Json::Value ServiceMessage::to_json() const {
   Json::Value json;
 
-  //printf("Service Message (%ld blocks): ", blocks_.size());
-
-  int country_id = blocks_[0].country_id();
+  if (!is_complete())
+    return json;
 
   std::vector<std::string> sech_types(
       {"COT", "AFT", "SAFT", "TDPNT", "SNT", "TDT", "SCOT"});
-  //printf("CID:%d NID:%d ",
-  //    blocks_[0].country_id(), blocks_[0].network_id());
-  //printf("TYPE: %s",
-  //    blocks_[0].data_type() < (int)sech_types.size() ? sech_types[blocks_[0].data_type()].c_str() : "err");
 
   std::vector<int> data = data_bits();
 
-  json["cid"] = blocks_[0].country_id();
-  json["nid"] = blocks_[0].network_id();
+  json["cid"] = country_id();
+  json["nid"] = network_id();
+
+  json["service_message"]["type"] =
+    (data_type() < static_cast<int>(sech_types.size()) ?
+                   sech_types.at(data_type()) : "err");
 
   int ecc = field(data, 0, 8);
   int tseid = field(data, 8, 7);
   int message_len = field(data, 15, 9);
   json["service_message"]["ecc"] = ecc;
   json["service_message"]["tse_id"] = tseid;
-  //printf(" ecc:%d  tseid:%d  len:%d ", ecc, tseid, message_len);
 
-  if (blocks_[0].data_type() == 0x5) {
+  if (data_type() == kTypeTDT) {
     std::vector<int> time_bits(data.begin() + 3*8, data.begin() + 7*8 + 1);
     std::vector<int> date_bits(data.begin() + 7*8, data.begin() + 10*8 + 1);
 
@@ -185,14 +192,11 @@ void ServiceMessage::print(std::unique_ptr<Json::StreamWriter>& writer) const {
     }
   }
 
-  std::stringstream ss;
-  writer->write(json, &ss);
-  ss << '\n';
-
-  std::cout << ss.str() << std::flush;
+  return json;
 }
 
-Layer3::Layer3() : writer_builder_(), json_() {
+Layer3::Layer3(const Options& options) :
+    options_(options), writer_builder_() {
   writer_builder_["indentation"] = "";
   writer_ =
       std::unique_ptr<Json::StreamWriter>(writer_builder_.newStreamWriter());
@@ -209,28 +213,27 @@ void Layer3::push_block(const L2Block& l2block) {
   uint16_t silch = field(header, 0, 4);
 
   if (silch == 0x8) {
-    //printf("SeCH ");
+    printf("SeCH ");
     SechBlock sechblock(l2block.information_bits());
     service_message_.push_block(SechBlock(l2block.information_bits()));
 
     if (service_message_.is_complete()) {
-      json_.clear();
-      service_message_.print(writer_);
+      print_line(service_message_.to_json());
     }
 
   } else if (silch == 0x9) {
-      //printf("SMCh ");
+      printf("SMCh ");
   } else if (silch == 0xA) {
-      //printf("LMCh ");
+      printf("LMCh ");
   } else if (silch == 0xB) {
-      //printf("BMCh ");
+      printf("BMCh ");
       bool is_realtime = field(header, 4, 1);
       int subchannel = field(header, 5, 3);
-      //printf("subch:%d ", subchannel);
+      printf("subch:%d ", subchannel);
   } else {
 
   }
-  //printf("\n");
+}
 
 void Layer3::print_line(Json::Value json) {
   if (options_.timestamp)
