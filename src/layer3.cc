@@ -207,13 +207,12 @@ Layer3::~Layer3() {
 
 void Layer3::push_block(const L2Block& l2block) {
   std::vector<int> info_bits = l2block.information_bits();
-  std::vector<int> header(info_bits.begin(), info_bits.begin() + 24);
-  std::vector<int> data(info_bits.begin() + 24, info_bits.end());
 
-  uint16_t silch = field(header, 0, 4);
+  uint16_t silch = field(info_bits, 0, 4);
 
   if (silch == 0x8) {
-    printf("SeCH ");
+    std::vector<int> header(info_bits.begin(), info_bits.begin() + 24);
+    std::vector<int> data(info_bits.begin() + 24, info_bits.end());
     SechBlock sechblock(l2block.information_bits());
     service_message_.push_block(SechBlock(l2block.information_bits()));
 
@@ -222,14 +221,26 @@ void Layer3::push_block(const L2Block& l2block) {
     }
 
   } else if (silch == 0x9) {
-      printf("SMCh ");
+    //printf("SMCh ");
   } else if (silch == 0xA) {
-      printf("LMCh ");
+    //printf("LMCh ");
   } else if (silch == 0xB) {
-      printf("BMCh ");
-      bool is_realtime = field(header, 4, 1);
-      int subchannel = field(header, 5, 3);
-      printf("subch:%d ", subchannel);
+    bool is_realtime = field(info_bits, 4, 1);
+    int subchannel = field(info_bits, 5, 3);
+    if (subchannel == 0x0) {
+      std::vector<int> data;
+      data = std::vector<int>(info_bits.begin() + 8, info_bits.end());
+      Json::Value json;
+
+      std::stringstream ss;
+      for (size_t nbit = 0; nbit < data.size(); nbit += 4)
+        ss << std::setfill('0') << std::setw(1) << std::hex <<
+              field(data, nbit, 4);
+
+      json["block_app"]["data"] = ss.str();
+      print_line(json);
+    }
+    //printf("subch:%d ", subchannel);
   } else {
 
   }
@@ -239,7 +250,6 @@ void Layer3::print_line(Json::Value json) {
   if (options_.timestamp)
     json["rx_time"] = TimePointToString(std::chrono::system_clock::now(),
                                         options_.time_format);
-
   std::stringstream ss;
   writer_->write(json, &ss);
   ss << '\n';
