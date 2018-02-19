@@ -18,7 +18,6 @@
 #define LIQUID_WRAPPERS_H_
 
 #include "config.h"
-#ifdef HAVE_LIQUID
 
 #include <complex>
 #include <vector>
@@ -126,7 +125,5 @@ class Resampler {
 };
 
 }  // namespace liquid
-
-#endif // HAVE_LIQUID
 
 #endif // LIQUID_WRAPPERS_H_

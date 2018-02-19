@@ -17,7 +17,6 @@
 #include "src/liquid_wrappers.h"
 
 #include "config.h"
-#ifdef HAVE_LIQUID
 
 #include <cassert>
 #include <complex>
@@ -218,5 +217,3 @@ unsigned int Resampler::execute(std::complex<float> in,
 }
 
 }  // namespace liquid
-
-#endif

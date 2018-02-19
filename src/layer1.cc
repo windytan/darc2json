@@ -16,8 +16,6 @@
  */
 #include "src/layer1.h"
 
-#ifdef HAVE_LIQUID
-
 #include <cmath>
 #include <complex>
 #include <cstdio>
@@ -172,5 +170,3 @@ float Subcarrier::t() const {
 #endif
 
 }  // namespace darc2json
-
-#endif  // HAVE_LIQUID

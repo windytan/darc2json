@@ -30,12 +30,8 @@ void PrintUsage() {
   std::cout <<
     "radio_command | darc2json [OPTIONS]\n"
     "\n"
-    "By default, a 171 kHz single-channel 16-bit MPX signal is expected via\n"
+    "By default, a 228 kHz single-channel 16-bit MPX signal is expected via\n"
     "stdin.\n"
-    "\n"
-    "-b, --input-bits       Input is an unsynchronized ASCII bit stream\n"
-    "                       (011010110...). All characters but '0' and '1'\n"
-    "                       are ignored.\n"
     "\n"
     "-e, --feed-through     Echo the input signal to stdout and print\n"
     "                       decoded groups to stderr.\n"
@@ -49,18 +45,6 @@ void PrintUsage() {
     "-f, --file FILENAME    Use an audio file as MPX input. All formats\n"
     "                       readable by libsndfile should work.\n"
     "\n"
-    "-h, --input-hex        The input is in the RDS Spy hex format.\n"
-    "\n"
-    "-l, --loctable DIR     Load TMC location table from a directory in TMC\n"
-    "                       Exchange format.\n"
-    "\n"
-    "-p, --show-partial     Under noisy conditions, darc2json may not be able to\n"
-    "                       fully receive all information. Multi-group data\n"
-    "                       such as PS names, RadioText, and alternative\n"
-    "                       frequencies are especially vulnerable. This option\n"
-    "                       makes it display them even if not fully received,\n"
-    "                       as partial_{ps,radiotext,alt_kilohertz}.\n"
-    "\n"
     "-r, --samplerate RATE  Set stdin sample frequency in Hz. Will resample\n"
     "                       (slow) if this differs from 171000 Hz.\n"
     "\n"
@@ -68,16 +52,7 @@ void PrintUsage() {
     "                       man strftime for formatting options (or\n"
     "                       try \"%c\").\n"
     "\n"
-    "-u, --rbds             RBDS mode; use North American program type names\n"
-    "                       and \"back-calculate\" the station's call sign from\n"
-    "                       its PI code. Note that this calculation gives an\n"
-    "                       incorrect call sign for most stations that transmit\n"
-    "                       TMC.\n"
-    "\n"
-    "-v, --version          Print version string.\n"
-    "\n"
-    "-x, --output-hex       Output hex groups in the RDS Spy format,\n"
-    "                       suppressing JSON output.\n";
+    "-v, --version          Print version string.\n";
 }
 
 void PrintVersion() {
@@ -92,29 +67,22 @@ Options GetOptions(int argc, char** argv) {
   darc2json::Options options;
 
   static struct option long_options[] = {
-    { "input-bits",    no_argument, 0, 'b'},
     { "feed-through",  no_argument, 0, 'e'},
     { "bler",          no_argument, 0, 'E'},
     { "file",          1,           0, 'f'},
-    { "input-hex",     no_argument, 0, 'h'},
-    { "show-partial",  no_argument, 0, 'p'},
     { "samplerate",    1,           0, 'r'},
     { "timestamp",     1,           0, 't'},
     { "version",       no_argument, 0, 'v'},
-    { "output-hex",    no_argument, 0, 'x'},
     { "help",          no_argument, 0, '?'},
     {0,                0,           0,  0}};
 
   int option_index = 0;
   int option_char;
 
-  while ((option_char = getopt_long(argc, argv, "beEf:hpr:t:vx",
+  while ((option_char = getopt_long(argc, argv, "eEf:r:t:v",
                                     long_options,
          &option_index)) >= 0) {
     switch (option_char) {
-      case 'b':
-        options.input_type = darc2json::INPUT_ASCIIBITS;
-        break;
       case 'e':
         options.feed_thru = true;
         break;
@@ -130,12 +98,6 @@ Options GetOptions(int argc, char** argv) {
                   << '\n';
         options.just_exit = true;
 #endif
-        break;
-      case 'h':
-        options.input_type = darc2json::INPUT_HEX;
-        break;
-      case 'x':
-        options.output_type = darc2json::OUTPUT_HEX;
         break;
       case 'p':
         options.show_partial = true;
@@ -182,15 +144,6 @@ int main(int argc, char** argv) {
 
   if (options.just_exit)
     return EXIT_FAILURE;
-
-#ifndef HAVE_LIQUID
-  if (options.input_type == darc2json::INPUT_MPX_STDIN ||
-      options.input_type == darc2json::INPUT_MPX_SNDFILE) {
-    std::cerr << "error: darc2json was compiled without liquid-dsp"
-              << '\n';
-    return EXIT_FAILURE;
-  }
-#endif
 
   darc2json::Layer2 layer2;
   darc2json::Layer3 layer3(options);
