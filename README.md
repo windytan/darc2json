@@ -1,9 +1,13 @@
 # darc2json
 
 darc2json is a DARC demodulator. It takes a 228 kHz FM multiplex signal as
-input, in raw PCM format, and outputs line-delimited JSON messages.
+input, in raw PCM format, and outputs line-delimited JSON messages. It was
+designed to be used with the RTL-SDR tool `rtl_fm`, but it can read any FM
+multiplex signals.
 
 ## Supported features
+
+Currently, darc2json will only decode:
 
 * Country code
 * Network name
