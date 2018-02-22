@@ -23,12 +23,13 @@
 #include "config.h"
 
 #include "src/common.h"
+#include "src/util.h"
 
 namespace darc2json {
 
 enum eBic { BIC1, BIC2, BIC3, BIC4 };
 
-uint32_t field(const std::vector<int>& bits,
+uint32_t field(const Bits& bits,
                int start_at, int length);
 
 class Descrambler {
@@ -50,11 +51,11 @@ class L2Block {
   int BicNum() const;
   void print() const;
   bool crc_ok() const;
-  std::vector<int> information_bits() const;
+  Bits information_bits() const;
 
  private:
   eBic bic_;
-  std::vector<int> bits_;
+  Bits bits_;
   size_t bit_counter_;
   Descrambler descrambler_;
 };

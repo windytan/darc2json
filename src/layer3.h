@@ -26,6 +26,7 @@
 
 #include "src/common.h"
 #include "src/layer2.h"
+#include "src/util.h"
 
 namespace darc2json {
 
@@ -35,13 +36,13 @@ enum eSechDataType {
 
 class SechBlock {
  public:
-  SechBlock(const std::vector<int>& info_bits);
+  SechBlock(const Bits& info_bits);
   bool is_last_fragment() const;
   int block_num() const;
   int country_id() const;
   int data_type() const;
   int network_id() const;
-  std::vector<int> data_bits() const;
+  Bits data_bits() const;
 
   bool follows_in_sequence(const SechBlock& previous) const;
 
@@ -52,7 +53,7 @@ class SechBlock {
   int data_type_;
   int network_id_;
   int block_num_;
-  std::vector<int> data_;
+  Bits data_;
 };
 
 class ServiceMessage {
@@ -61,13 +62,73 @@ class ServiceMessage {
   void push_block(const SechBlock& block);
   bool is_complete() const;
   Json::Value to_json() const;
-  std::vector<int> data_bits() const;
+  Bits data_bits() const;
   int country_id() const;
   int network_id() const;
   int data_type() const;
 
  private:
   std::vector<SechBlock> blocks_;
+  bool is_complete_;
+};
+
+class ShortBlock {
+ public:
+  ShortBlock(const Bits& info_bits);
+  bool is_last_fragment() const;
+  bool header_crc_ok() const;
+
+  bool follows_in_sequence(const ShortBlock& previous) const;
+
+ private:
+  bool is_last_fragment_;
+  int sequence_counter_;
+  bool header_crc_ok_;
+  Bits data_;
+};
+
+class ShortMessage {
+ public:
+  ShortMessage();
+  void push_block(const ShortBlock& block);
+  bool is_complete() const;
+
+ private:
+  std::vector<ShortBlock> blocks_;
+};
+
+class LongBlock {
+ public:
+  LongBlock(const Bits& info_bits);
+  bool is_last_fragment() const;
+  bool header_crc_ok() const;
+  Bits data_bits() const;
+
+  bool follows_in_sequence(const LongBlock& previous) const;
+
+ private:
+  bool is_last_fragment_;
+  int sequence_counter_;
+  bool header_crc_ok_;
+  Bits data_;
+};
+
+class LongMessage {
+ public:
+  LongMessage();
+  void push_block(const LongBlock& block);
+  bool is_complete() const;
+  Json::Value to_json() const;
+  Bits bits() const;
+  Bytes bytes() const;
+
+ private:
+  void parse_header();
+
+  bool is_complete_;
+  std::vector<LongBlock> blocks_;
+  Bytes bytes_;
+  bool header_crc_ok_;
 };
 
 class Layer3 {
@@ -80,6 +141,8 @@ class Layer3 {
  private:
   Options options_;
   ServiceMessage service_message_;
+  ShortMessage short_message_;
+  LongMessage long_message_;
 
   Json::StreamWriterBuilder writer_builder_;
   std::unique_ptr<Json::StreamWriter> writer_;

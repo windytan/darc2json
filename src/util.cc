@@ -21,8 +21,8 @@
 
 namespace darc2json {
 
-std::vector<int> bitvector_lsb(std::vector<uint8_t> input) {
-  std::vector<int> result;
+Bits bitvector_lsb(std::vector<uint8_t> input) {
+  Bits result;
 
   for (uint8_t c : input) {
     for (int i = 7; i >= 0; i--) {
@@ -32,8 +32,8 @@ std::vector<int> bitvector_lsb(std::vector<uint8_t> input) {
   return result;
 }
 
-std::vector<int> bitvector_msb(std::vector<uint8_t> input) {
-  std::vector<int> result;
+Bits bitvector_msb(std::vector<uint8_t> input) {
+  Bits result;
 
   for (uint8_t c : input) {
     for (int i = 0; i < 8; i++) {
@@ -43,25 +43,38 @@ std::vector<int> bitvector_msb(std::vector<uint8_t> input) {
   return result;
 }
 
-uint32_t field(const std::vector<int>& bits,
+uint32_t field(const Bits& bits,
                int start_at, int length) {
+  assert (length <= 32);
   uint32_t result = 0;
   for (int i = 0; i < length; i++) {
-    result += (bits[start_at + i] << i);
+    result += (bits.at(start_at + i) << i);
   }
 
   return result;
 }
 
-void lshift(std::vector<int>& bits) {
+uint32_t field_rev(const Bits& bits,
+                   int start_at, int length) {
+  assert (length <= 32);
+  uint32_t result = 0;
+  for (int i = 0; i < length; i++) {
+    result += (bits.at(start_at + i) << (length - 1 - i));
+  }
+
+  return result;
+}
+
+
+void lshift(Bits& bits) {
   for (size_t i = 0; i < bits.size() - 1; i++)
     bits[i] = bits[i + 1];
   bits[bits.size() - 1] = 0;
 }
 
-std::vector<int> crc(std::vector<int> bits, const std::vector<int>& generator) {
+Bits crc(Bits bits, const Bits& generator) {
   assert(generator.size() > 1);
-  std::vector<int> result(generator.size() - 1);
+  Bits result(generator.size() - 1);
 
   // Input padding
   for (size_t i = 0; i < generator.size() - 1; i++)
@@ -79,6 +92,30 @@ std::vector<int> crc(std::vector<int> bits, const std::vector<int>& generator) {
     }
   }
 
+  return result;
+}
+
+bool BitsEqual(const Bits& bits1, const Bits& bits2) {
+  bool match = true;
+
+  if (bits1.size() == bits2.size()) {
+    for (size_t i = 0; i < bits1.size(); i++) {
+      if (bits1[i] != bits2[i]) {
+        match = false;
+        break;
+      }
+    }
+  } else {
+    match = false;
+  }
+
+  return match;
+}
+
+std::string BitString(const Bits& bits) {
+  std::string result;
+  for (int b : bits)
+    result += std::to_string(b);
   return result;
 }
 

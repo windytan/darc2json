@@ -18,6 +18,8 @@
 
 #include <cassert>
 
+#include "src/util.h"
+
 namespace darc2json {
 
 const uint16_t kBic1 = 0x135E;
@@ -28,7 +30,6 @@ const uint16_t kBic4 = 0xC875;
 bool IsValidBic(uint16_t word) {
   return (word == kBic1 || word == kBic2 || word == kBic3 || word == kBic4);
 }
-
 
 eBic BicFor(uint16_t word) {
   if (word == kBic1)
@@ -81,24 +82,16 @@ int L2Block::BicNum() const {
   return bic_ + 1;
 }
 
-std::vector<int> L2Block::information_bits() const {
-  return std::vector<int>(bits_.begin(), bits_.begin() + 176);
+Bits L2Block::information_bits() const {
+  return Bits(bits_.begin(), bits_.begin() + 176);
 }
 
 bool L2Block::crc_ok() const {
-  std::vector<int> crc_calc =
+  Bits crc_calc =
     crc(information_bits(), {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1});
-  std::vector<int> crc_rx(bits_.begin() + 176, bits_.begin() + 176 + 14);
+  Bits crc_rx(bits_.begin() + 176, bits_.begin() + 176 + 14);
 
-  bool match = true;
-  for (size_t i = 0; i < crc_calc.size(); i++) {
-    if (crc_calc[i] != crc_rx[i]) {
-      match = false;
-      break;
-    }
-  }
-
-  return match;
+  return BitsEqual(crc_rx, crc_calc);
 }
 
 void L2Block::print() const {

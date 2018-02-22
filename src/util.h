@@ -17,16 +17,24 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <string>
 #include <vector>
 
 namespace darc2json {
 
-std::vector<int> bitvector_lsb(std::vector<uint8_t> input);
-std::vector<int> bitvector_msb(std::vector<uint8_t> input);
-uint32_t field(const std::vector<int>& bits,
+using Bits = std::vector<uint8_t>;
+using Bytes = std::vector<uint8_t>;
+
+Bits bitvector_lsb(std::vector<uint8_t> input);
+Bits bitvector_msb(std::vector<uint8_t> input);
+uint32_t field(const Bits& bits,
                int start_at, int length);
-void lshift(std::vector<int>& bits);
-std::vector<int> crc(std::vector<int> bits, const std::vector<int>& generator);
+uint32_t field_rev(const Bits& bits,
+                   int start_at, int length);
+void lshift(Bits& bits);
+Bits crc(Bits bits, const Bits& generator);
+bool BitsEqual(const Bits& bits1, const Bits& bits2);
+std::string BitString(const Bits& bits);
 
 }  // namespace darc2json
 #endif  // UTIL_H_
