@@ -24,7 +24,6 @@
 
 #include "config.h"
 
-#include "src/common.h"
 #include "src/layer2.h"
 #include "src/util.h"
 
