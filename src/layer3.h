@@ -109,7 +109,7 @@ class LongBlock {
  private:
   bool is_last_fragment_;
   int sequence_counter_;
-  bool header_crc_ok_;
+  bool l3_header_crc_ok_;
   Bits data_;
 };
 

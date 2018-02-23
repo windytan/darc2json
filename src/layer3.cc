@@ -256,7 +256,7 @@ LongBlock::LongBlock(const Bits& info_bits) :
   Bits crc_calc = crc(header_bits, {1, 0, 1, 1, 0, 0, 1});
 
   bool di = field(info_bits, 4, 1);
-  header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
+  l3_header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
 
   /*printf(" LF[%s] DI[%s] SC:%02d L3_CRC_OK[%s] ",
       is_last_fragment_ ? "x" : " ",
@@ -271,11 +271,12 @@ bool LongBlock::is_last_fragment() const {
 }
 
 bool LongBlock::header_crc_ok() const {
-  return header_crc_ok_;
+  return l3_header_crc_ok_;
 }
 
 bool LongBlock::follows_in_sequence(const LongBlock& previous) const {
   return sequence_counter_ == ((previous.sequence_counter_ + 1) % 16) &&
+         header_crc_ok() && previous.header_crc_ok() &&
          !previous.is_last_fragment();
 }
 
@@ -377,8 +378,8 @@ Json::Value LongMessage::to_json() const {
 
   std::stringstream data_hex;
   for (int c : bytes_)
-    data_hex << std::setfill('0') << std::setw(1) << std::hex <<
-             c;
+    data_hex << std::setfill('0') << std::setw(2) << std::hex <<
+             c << " ";
   json["long_message"]["l4data"] = data_hex.str();
 
   return json;
