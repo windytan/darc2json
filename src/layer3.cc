@@ -174,10 +174,11 @@ Json::Value ServiceMessage::to_json() const {
 
     int name_len = field(date_bits, 2*8 + 2, 4);
     std::string name;
-    if (static_cast<int>(data.size()) >= (10 * name_len) * 8)
-    for (int i = 0; i < name_len; i++) {
-      char c = field(data, (10 + i) * 8, 8);
-      name += c;
+    if (static_cast<int>(data.size()) >= (10 + name_len) * 8) {
+      for (int i = 0; i < name_len; i++) {
+        char c = field(data, (10 + i) * 8, 8);
+        name += c;
+      }
     }
     json["service_message"]["network_name"] = name;
     //json["service_message"]["time"] = TimeString(hours, minutes, seconds);
