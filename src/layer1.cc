@@ -64,8 +64,8 @@ Subcarrier::Subcarrier(const Options& options) : sample_num_(0),
     agc_(kAGCBandwidth_Hz / kTargetSampleRate_Hz, kAGCInitialGain),
     oscillator_subcarrier_(LIQUID_VCO, hertz2step(kCarrierFrequency_Hz)),
     oscillator_dataclock_(LIQUID_VCO, hertz2step(kBitsPerSecond/2)),
-    freqdem_(0.5f),
     resampler_(resample_ratio_, 13),
+    freqdem_(0.5f),
     is_eof_(false),
     accumulator_(0.f) {
   oscillator_dataclock_.set_pll_bandwidth(kPLLBandwidth_Hz / kTargetSampleRate_Hz);
