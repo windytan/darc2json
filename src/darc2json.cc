@@ -22,7 +22,7 @@
 #include "src/common.h"
 #include "src/layer1.h"
 #include "src/layer2.h"
-#include "src/layer3.h"
+#include "src/layer3_4.h"
 
 namespace darc2json {
 
