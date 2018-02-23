@@ -9,10 +9,9 @@ multiplex signals.
 
 Currently, darc2json will only decode:
 
-* Block application channel
-* Long message channel
-* Country code
-* Network name
+* Block application channel: Layer 3 data
+* Long message channel: Layer 4 data
+* TDT: Country code and network name
 
 ## TODO
 
@@ -20,10 +19,11 @@ Currently, darc2json will only decode:
 * Synchronous Frame Messages
 * PLL and symbol synchronization
 * Error correction
-* More robust block synchronization
+* More robust block synchronization?
 * More efficient handling of bitstrings
 * Time and date in TDT
 * COT, SCOT, AFT, SAFT
+* Conditional Access at L4
 * Not repeating unchanged service messages
 
 ## Installation
