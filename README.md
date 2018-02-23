@@ -57,7 +57,7 @@ It is also simple to later pull the latest updates and recompile:
 
 The simplest way to view DARC messages using `rtl_fm` is:
 
-    rtl_fm -M fm -l 0 -A std -p 0 -s 228k -g 40 -F 9 -f 87.9M | darc2json
+    rtl_fm -M fm -l 0 -A std -p 0 -s 228k -g 20 -F 9 -f 87.9M | darc2json
 
 ### Full usage
 
