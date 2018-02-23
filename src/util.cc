@@ -17,7 +17,9 @@
 #include "src/util.h"
 
 #include <cassert>
+#include <iomanip>
 #include <map>
+#include <sstream>
 #include <vector>
 
 namespace darc2json {
@@ -149,6 +151,32 @@ const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
   }
 
   return result;
+}
+
+std::string BytesToHexString(const std::vector<uint8_t>& data) {
+  std::stringstream ss;
+  for (size_t n_byte = 0; n_byte < data.size(); n_byte++) {
+    ss << std::setfill('0') << std::setw(2) << std::hex <<
+       static_cast<int>(data[n_byte]);
+
+    if (n_byte < data.size() - 1)
+      ss << " ";
+  }
+
+  return ss.str();
+}
+
+std::string BitsToHexString(const Bits& data) {
+  std::stringstream ss;
+  for (size_t nbyte = 0; nbyte < data.size() / 8; nbyte++) {
+    ss << std::setfill('0') << std::setw(2) << std::hex <<
+      field(data, nbyte * 8, 8);
+
+    if (nbyte < data.size() / 8 - 1)
+      ss << " ";
+  }
+
+  return ss.str();
 }
 
 }  // namespace darc2json

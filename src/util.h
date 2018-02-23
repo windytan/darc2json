@@ -41,6 +41,8 @@ Bits syndrome(const Bits& bits, const Bits& generator);
 
 const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
                                                        const Bits& generator);
+std::string BitsToHexString(const Bits& data);
+std::string BytesToHexString(const std::vector<uint8_t>& data);
 
 }  // namespace darc2json
 #endif  // UTIL_H_

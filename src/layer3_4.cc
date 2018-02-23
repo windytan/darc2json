@@ -383,11 +383,7 @@ bool LongMessage::is_complete() const {
 Json::Value LongMessage::to_json() const {
   Json::Value json;
 
-  std::stringstream data_hex;
-  for (int c : bytes_)
-    data_hex << std::setfill('0') << std::setw(2) << std::hex <<
-             c << " ";
-  json["long_message"]["l4data"] = data_hex.str();
+  json["long_message"]["l4data"] = BytesToHexString(bytes_);
 
   return json;
 }
@@ -431,12 +427,7 @@ void Layer3::push_block(const L2Block& l2block) {
       data = Bits(info_bits.begin() + 8, info_bits.end());
       Json::Value json;
 
-      std::stringstream ss;
-      for (size_t nbit = 0; nbit < data.size(); nbit += 4)
-        ss << std::setfill('0') << std::setw(1) << std::hex <<
-              field(data, nbit, 4);
-
-      json["block_app"]["data"] = ss.str();
+      json["block_app"]["data"] = BitsToHexString(data);
       print_line(json);
     }
     //printf("subch:%d ", subchannel);
