@@ -318,6 +318,7 @@ void LongMessage::parse_header() {
 
   int  ri   = bytes_[0] >> 6;
   int  ci   = (bytes_[0] >> 4) & 0x3;
+  fl_   = (bytes_[0] >> 2) & 0x3;
   bool ext  = (bytes_[0] >> 1) & 1;
   int  add  = ((bytes_[0] & 1) << 8) + bytes_[1];
   bool com  = (bytes_[2 + ext] >> 7) & 1;

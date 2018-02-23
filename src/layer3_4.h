@@ -128,6 +128,7 @@ class LongMessage {
   std::vector<LongBlock> blocks_;
   Bytes bytes_;
   bool header_crc_ok_;
+  int fl_;
 };
 
 class Layer3 {
