@@ -32,30 +32,6 @@
 
 namespace darc2json {
 
-class BiphaseDecoder {
- public:
-  BiphaseDecoder();
-  ~BiphaseDecoder();
-  std::pair<bool, std::complex<float>> push(
-      const std::complex<float>& psk_symbol);
-
- private:
-  std::complex<float> prev_psk_symbol_;
-  std::vector<float> clock_history_;
-  unsigned clock_;
-  unsigned clock_polarity_;
-};
-
-class DeltaDecoder {
- public:
-  DeltaDecoder();
-  ~DeltaDecoder();
-  unsigned Decode(unsigned);
-
- private:
-  unsigned prev_;
-};
-
 class Subcarrier {
  public:
   explicit Subcarrier(const Options& options);
