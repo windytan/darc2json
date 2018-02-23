@@ -180,8 +180,6 @@ Json::Value ServiceMessage::to_json() const {
         (data_bytes[8] << 2) +
         (data_bytes[9] >> 6);
 
-    printf("mjd=%d\n",modified_julian_date);
-
     double local_offset = (((data_bytes[5] >> 5) & 1) ? -1 : 1) *
         (data_bytes[5] & 0x1f) / 2.0;
     modified_julian_date += local_offset / 24.0;
