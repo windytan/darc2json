@@ -17,6 +17,7 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@ namespace darc2json {
 using Bits = std::vector<uint8_t>;
 using Bytes = std::vector<uint8_t>;
 
+Bits poly_coeffs_to_bits(const std::vector<int>& coeffs);
 Bits bitvector_lsb(std::vector<uint8_t> input);
 Bits bitvector_msb(std::vector<uint8_t> input);
 uint32_t field(const Bits& bits,
@@ -35,6 +37,10 @@ void lshift(Bits& bits);
 Bits crc(Bits bits, const Bits& generator);
 bool BitsEqual(const Bits& bits1, const Bits& bits2);
 std::string BitString(const Bits& bits);
+Bits syndrome(const Bits& bits, const Bits& generator);
+
+const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
+                                                       const Bits& generator);
 
 }  // namespace darc2json
 #endif  // UTIL_H_

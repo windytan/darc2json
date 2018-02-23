@@ -50,7 +50,7 @@ class L2Block {
   bool complete() const;
   int BicNum() const;
   void print() const;
-  bool crc_ok() const;
+  bool crc_ok();
   Bits information_bits() const;
 
  private:

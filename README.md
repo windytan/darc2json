@@ -18,7 +18,7 @@ Currently, darc2json will only decode:
 * Short message channel
 * Synchronous Frame Messages
 * PLL and symbol synchronization
-* Error correction
+* Error correction beyond single bit flips
 * More robust block synchronization?
 * More efficient handling of bitstrings
 * Time and date in TDT

@@ -17,9 +17,20 @@
 #include "src/util.h"
 
 #include <cassert>
+#include <map>
 #include <vector>
 
 namespace darc2json {
+
+// Convert generator polynomial (x^6 + x^4 + x^3 + 1) coefficients
+// ({6, 4, 3, 0}) to bitstring ({1, 0, 1, 1, 0, 0, 1})
+Bits poly_coeffs_to_bits(const std::vector<int>& coeffs) {
+  Bits bits(coeffs.at(0) + 1);
+  for (int c : coeffs)
+    bits.at(bits.size() - c - 1) = 1;
+
+  return bits;
+}
 
 Bits bitvector_lsb(std::vector<uint8_t> input) {
   Bits result;
@@ -65,25 +76,19 @@ uint32_t field_rev(const Bits& bits,
   return result;
 }
 
-
 void lshift(Bits& bits) {
   for (size_t i = 0; i < bits.size() - 1; i++)
     bits[i] = bits[i + 1];
   bits[bits.size() - 1] = 0;
 }
 
-Bits crc(Bits bits, const Bits& generator) {
-  assert(generator.size() > 1);
+Bits _crc(const Bits& bits, const Bits& generator) {
   Bits result(generator.size() - 1);
 
-  // Input padding
-  for (size_t i = 0; i < generator.size() - 1; i++)
-    bits.push_back(0);
-
-  for (size_t i = 0; i < bits.size(); i++) {
+  for (int bit : bits) {
     int popped_bit = result[0];
     lshift(result);
-    result[result.size() - 1] = bits[i];
+    result[result.size() - 1] = bit;
 
     // XOR if shifted-out bit was 1
     if (popped_bit) {
@@ -93,6 +98,19 @@ Bits crc(Bits bits, const Bits& generator) {
   }
 
   return result;
+}
+
+// Normal CRC calculation is done on zero-padded data
+Bits crc(Bits bits, const Bits& generator) {
+  for (size_t i = 0; i < generator.size() - 1; i++)
+    bits.push_back(0);
+
+  return _crc(bits, generator);
+}
+
+// Syndrome calculation is done on data + received CRC + parity
+Bits syndrome(const Bits& bits, const Bits& generator) {
+  return _crc(bits, generator);
 }
 
 bool BitsEqual(const Bits& bits1, const Bits& bits2) {
@@ -116,6 +134,20 @@ std::string BitString(const Bits& bits) {
   std::string result;
   for (int b : bits)
     result += std::to_string(b);
+  return result;
+}
+
+const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
+                                                       const Bits& generator) {
+  std::map<Bits, Bits> result;
+
+  for (size_t i = 0; i < len; i++) {
+    Bits evector(len);
+    evector.at(i) = 1;
+
+    result[syndrome(evector, generator)] = evector;
+  }
+
   return result;
 }
 

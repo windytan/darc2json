@@ -17,6 +17,7 @@
 #include "src/layer2.h"
 
 #include <cassert>
+#include <map>
 
 #include "src/util.h"
 
@@ -26,6 +27,14 @@ const uint16_t kBic1 = 0x135E;
 const uint16_t kBic2 = 0x74A6;
 const uint16_t kBic3 = 0xA791;
 const uint16_t kBic4 = 0xC875;
+
+const Bits kL2CRC = poly_coeffs_to_bits({14, 11, 2, 0});
+const Bits kL2HorizontalParity =
+    poly_coeffs_to_bits({82, 77, 76, 71, 67, 66, 56, 52, 48, 40, 36, 34, 24,
+                         22, 18, 10, 4, 0});
+
+const std::map<Bits, Bits> parity_syndrome_errors =
+    create_bitflip_syndrome_map(272, kL2HorizontalParity);
 
 bool IsValidBic(uint16_t word) {
   return (word == kBic1 || word == kBic2 || word == kBic3 || word == kBic4);
@@ -43,15 +52,15 @@ eBic BicFor(uint16_t word) {
 }
 
 Descrambler::Descrambler() : bit_counter_(0) {
-  int wordnum = 0;
-  for (uint16_t word : { 0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd,
-                         0xb343, 0xbc3f, 0xe0f7, 0xc5cc, 0x8253, 0xb479, 0xf362,
-                         0xa471, 0xb571, 0x3110, 0x0846, 0x1390 }) {
-    for (int i = 0; i < 16; i++) {
-      sequence_[16*wordnum + i] = (word >> (15 - i)) & 1;
-    }
-    wordnum++;
-  }
+  const std::vector<uint16_t> seq_words(
+      {0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd,
+       0xb343, 0xbc3f, 0xe0f7, 0xc5cc, 0x8253, 0xb479, 0xf362,
+       0xa471, 0xb571, 0x3110, 0x0846, 0x1390});
+
+  for (size_t n_word = 0; n_word < seq_words.size(); n_word++)
+    for (int n_bit = 0; n_bit < 16; n_bit++)
+      sequence_[16 * n_word + n_bit] = (seq_words[n_word] >> (15 - n_bit)) & 1;
+
 }
 
 int Descrambler::Descramble(int bit) {
@@ -86,29 +95,33 @@ Bits L2Block::information_bits() const {
   return Bits(bits_.begin(), bits_.begin() + 176);
 }
 
-bool L2Block::crc_ok() const {
+bool L2Block::crc_ok() {
   Bits crc_calc =
-    crc(information_bits(), {1, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1});
+    crc(information_bits(), kL2CRC);
   Bits crc_rx(bits_.begin() + 176, bits_.begin() + 176 + 14);
 
-  return BitsEqual(crc_rx, crc_calc);
+  bool is_ok = BitsEqual(crc_rx, crc_calc);
+
+  if (!is_ok) {
+    Bits syn = syndrome(bits_, kL2HorizontalParity);
+
+    if (parity_syndrome_errors.count(syn) != 0) {
+      Bits evector = parity_syndrome_errors.at(syn);
+      for (size_t i = 0; i < evector.size(); i++)
+        bits_[i] ^=  evector[i];
+
+      crc_calc = crc(information_bits(), kL2CRC);
+      crc_rx = Bits(bits_.begin() + 176, bits_.begin() + 176 + 14);
+      is_ok = BitsEqual(crc_rx, crc_calc);
+    }
+  }
+
+  return is_ok;
 }
 
 void L2Block::print() const {
   if (bic_ == BIC4) {
     printf("(vertical parity)");
-  } else if (crc_ok()) {
-
-    /*for (int i = 4; i < 176; i++)
-      printf("%d", bits_[i]);
-    printf("   ");
-
-    for (int i = 176; i < 176+14; i++)
-      printf("%d", bits_[i]);
-    printf(" ");
-
-    for (int i = 176+14; i < 176+14+82; i++)
-      printf("%d", bits_[i]);*/
   }
   printf("\n");
 }

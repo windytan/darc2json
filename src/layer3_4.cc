@@ -25,6 +25,10 @@
 
 namespace darc2json {
 
+const Bits kL3ShortMessageHeaderCRC = poly_coeffs_to_bits({6, 4, 3, 0});
+const Bits kL3LongMessageHeaderCRC  = poly_coeffs_to_bits({6, 4, 3, 0});
+const Bits kL4LongMessageHeaderCRC  = poly_coeffs_to_bits({6, 4, 3, 0});
+
 std::string TimeString(int hours, int minutes, int seconds) {
   std::stringstream ss;
   ss << std::setfill('0') << std::setw(2) <<
@@ -198,7 +202,7 @@ ShortBlock::ShortBlock(const Bits& info_bits) :
     sequence_counter_(field(info_bits, 6, 4)) {
   Bits crc_rx(info_bits.begin() + 10, info_bits.begin() + 10 + 6);
   Bits header_bits(info_bits.begin(), info_bits.begin() + 10);
-  Bits crc_calc = crc(header_bits, {1, 0, 1, 1, 0, 0, 1});
+  Bits crc_calc = crc(header_bits, kL3ShortMessageHeaderCRC);
 
   header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
 
@@ -254,7 +258,7 @@ LongBlock::LongBlock(const Bits& info_bits) :
     data_(info_bits.begin() + 16, info_bits.end()) {
   Bits crc_rx(info_bits.begin() + 10, info_bits.begin() + 10 + 6);
   Bits header_bits(info_bits.begin(), info_bits.begin() + 10);
-  Bits crc_calc = crc(header_bits, {1, 0, 1, 1, 0, 0, 1});
+  Bits crc_calc = crc(header_bits, kL3LongMessageHeaderCRC);
 
   bool di = field(info_bits, 4, 1);
   l3_header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
@@ -293,6 +297,7 @@ void LongMessage::push_block(const LongBlock& block) {
     blocks_.clear();
     bytes_.clear();
     header_crc_ok_ = false;
+    is_complete_ = false;
   }
 
   blocks_.push_back(block);
@@ -328,7 +333,7 @@ void LongMessage::parse_header() {
   }
   header_bits.resize((3 + ext) * 8 + 2);
   uint8_t crc_calc =
-      field_rev(crc(header_bits, {1, 0, 1, 1, 0, 0, 1}), 0, 6);
+      field_rev(crc(header_bits, kL4LongMessageHeaderCRC), 0, 6);
 
   bool crc_ok = (crc_rx == crc_calc);
   bool complete = (static_cast<int>(bytes_.size()) >= dlen);
