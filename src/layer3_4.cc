@@ -17,6 +17,7 @@
 #include "src/layer3_4.h"
 
 #include <cassert>
+#include <cmath>
 #include <iomanip>
 #include <iostream>
 
@@ -153,6 +154,10 @@ Json::Value ServiceMessage::to_json() const {
 
   Bits data = data_bits();
 
+  std::vector<uint8_t> data_bytes;
+  for (size_t n_byte = 0; n_byte < data.size() / 8; n_byte++)
+    data_bytes.push_back(field(data, n_byte * 8, 8));
+
   json["cid"] = country_id();
   json["nid"] = network_id();
 
@@ -170,6 +175,54 @@ Json::Value ServiceMessage::to_json() const {
     Bits time_bits(data.begin() + 3*8, data.begin() + 7*8 + 1);
     Bits date_bits(data.begin() + 7*8, data.begin() + 10*8 + 1);
 
+    int modified_julian_date =
+        ((data_bytes[7] & 0x7ff) << 10) +
+        (data_bytes[8] << 2) +
+        (data_bytes[9] >> 6);
+
+    printf("mjd=%d\n",modified_julian_date);
+
+    double local_offset = (((data_bytes[5] >> 5) & 1) ? -1 : 1) *
+        (data_bytes[5] & 0x1f) / 2.0;
+    modified_julian_date += local_offset / 24.0;
+
+    int year = (modified_julian_date - 15078.2) / 365.25;
+    int month = (modified_julian_date - 14956.1 -
+                std::trunc(year * 365.25)) / 30.6001;
+    int day = modified_julian_date - 14956 - std::trunc(year * 365.25) -
+              std::trunc(month * 30.6001);
+    if (month == 14 || month == 15) {
+      year += 1;
+      month -= 12;
+    }
+    year += 1900;
+    month -= 1;
+
+    int local_offset_min = (local_offset - std::trunc(local_offset)) * 60;
+
+    int hour = (data_bytes[3] >> 2) & 0x1f;
+    int minute = ((data_bytes[3] & 3) << 4) + (data_bytes[4] >> 4);
+    int seconds = ((data_bytes[4] & 0xf) << 2) + (data_bytes[5] >> 6);
+
+    bool is_date_valid = (month >= 1 && month <= 12 && day >= 1 && day <= 31 &&
+                          hour >= 0 && hour <= 23 && minute >= 0 &&
+                          minute <= 59 && fabs(std::trunc(local_offset)) <= 14.0);
+    if (is_date_valid) {
+      char buffer[100];
+      int local_offset_hour = fabs(std::trunc(local_offset));
+
+      if (local_offset_hour == 0 && local_offset_min == 0) {
+        snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02dZ",
+                 year, month, day, hour, minute, seconds);
+      } else {
+        snprintf(buffer, sizeof(buffer),
+                 "%04d-%02d-%02dT%02d:%02d:%02d%s%02d:%02d",
+                 year, month, day, hour, minute, seconds,
+                 local_offset > 0 ? "+" : "-",
+                 local_offset_hour, abs(local_offset_min));
+      }
+      json["service_message"]["clock_time"] = std::string(buffer);
+    }
     /*bool eta = field(time_bits, 0, 1);
     int hours = field(time_bits, 1, 5);
     int minutes = field(time_bits, 6, 6);

@@ -11,7 +11,7 @@ Currently, darc2json will only decode:
 
 * Block application channel: Layer 3 data
 * Long message channel: Layer 4 data
-* TDT: Country code and network name
+* TDT: Country code, network name, date and time
 
 ## TODO
 
@@ -21,7 +21,6 @@ Currently, darc2json will only decode:
 * Error correction beyond single bit flips
 * More robust block synchronization?
 * More efficient handling of bitstrings
-* Time and date in TDT
 * COT, SCOT, AFT, SAFT
 * Conditional Access at L4
 * First/Last flags at L4 long messages
