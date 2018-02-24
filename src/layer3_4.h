@@ -123,6 +123,8 @@ class Layer3 {
   std::unique_ptr<Json::StreamWriter> writer_;
 };
 
+std::string CountryString(uint16_t cid, uint16_t ecc);
+
 }  // namespace darc2json
 
 #endif  // LAYER3_H_

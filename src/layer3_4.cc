@@ -159,8 +159,8 @@ Json::Value ServiceMessage::to_json() const {
   for (size_t n_byte = 0; n_byte < data.size() / 8; n_byte++)
     data_bytes.push_back(field(data, n_byte * 8, 8));
 
-  json["cid"] = country_id();
-  json["nid"] = network_id();
+  json["country_code"] = country_id();
+  json["network_id"] = network_id();
 
   json["service_message"]["type"] =
     (data_type() < static_cast<int>(sech_types.size()) ?
@@ -169,8 +169,9 @@ Json::Value ServiceMessage::to_json() const {
   int ecc = field(data, 0, 8);
   int tseid = field(data, 8, 7);
   //int message_len = field(data, 15, 9);
-  json["service_message"]["ecc"] = ecc;
   json["service_message"]["tse_id"] = tseid;
+
+  json["service_message"]["country"] = CountryString(country_id(), ecc);
 
   if (data_type() == kTypeTDT) {
     Bits time_bits(data.begin() + 3*8, data.begin() + 7*8 + 1);
@@ -450,6 +451,60 @@ void Layer3::print_line(Json::Value json) {
   writer_->write(json, &ss);
   ss << '\n';
   std::cout << ss.str() << std::flush;
+}
+
+// EN 50067:1998, Annex D, Table D.1 (p. 71)
+// RDS Forum R08/008_7, Table D.2 (p. 75)
+std::string CountryString(uint16_t cid, uint16_t ecc) {
+  static const std::map<uint16_t, std::vector<std::string>> country_codes({
+    {0xA0, {"us", "us", "us", "us", "us", "us", "us", "us",
+            "us", "us", "us", "--", "us", "us", "--"}},
+    {0xA1, {"--", "--", "--", "--", "--", "--", "--", "--",
+            "--", "--", "ca", "ca", "ca", "ca", "gl"}},
+    {0xA2, {"ai", "ag", "ec", "fk", "bb", "bz", "ky", "cr",
+            "cu", "ar", "br", "bm", "an", "gp", "bs"}},
+    {0xA3, {"bo", "co", "jm", "mq", "gf", "py", "ni", "--",
+            "pa", "dm", "do", "cl", "gd", "tc", "gy"}},
+    {0xA4, {"gt", "hn", "aw", "--", "ms", "tt", "pe", "sr",
+            "uy", "kn", "lc", "sv", "ht", "ve", "--"}},
+    {0xA5, {"--", "--", "--", "--", "--", "--", "--", "--",
+            "--", "--", "mx", "vc", "mx", "mx", "mx"}},
+    {0xA6, {"--", "--", "--", "--", "--", "--", "--", "--",
+            "--", "--", "--", "--", "--", "--", "pm"}},
+    {0xD0, {"cm", "cf", "dj", "mg", "ml", "ao", "gq", "ga",
+            "gn", "za", "bf", "cg", "tg", "bj", "mw"}},
+    {0xD1, {"na", "lr", "gh", "mr", "st", "cv", "sn", "gm",
+            "bi", "--", "bw", "km", "tz", "et", "bg"}},
+    {0xD2, {"sl", "zw", "mz", "ug", "sz", "ke", "so", "ne",
+            "td", "gw", "zr", "ci", "tz", "zm", "--"}},
+    {0xD3, {"--", "--", "eh", "--", "rw", "ls", "--", "sc",
+            "--", "mu", "--", "sd", "--", "--", "--"}},
+    {0xE0, {"de", "dz", "ad", "il", "it", "be", "ru", "ps",
+            "al", "at", "hu", "mt", "de", "--", "eg"}},
+    {0xE1, {"gr", "cy", "sm", "ch", "jo", "fi", "lu", "bg",
+            "dk", "gi", "iq", "gb", "ly", "ro", "fr"}},
+    {0xE2, {"ma", "cz", "pl", "va", "sk", "sy", "tn", "--",
+            "li", "is", "mc", "lt", "rs", "es", "no"}},
+    {0xE3, {"me", "ie", "tr", "mk", "--", "--", "--", "nl",
+            "lv", "lb", "az", "hr", "kz", "se", "by"}},
+    {0xE4, {"md", "ee", "kg", "--", "--", "ua", "ks", "pt",
+            "si", "am", "--", "ge", "--", "--", "ba"}},
+    {0xF0, {"au", "au", "au", "au", "au", "au", "au", "au",
+            "sa", "af", "mm", "cn", "kp", "bh", "my"}},
+    {0xF1, {"ki", "bt", "bd", "pk", "fj", "om", "nr", "ir",
+            "nz", "sb", "bn", "lk", "tw", "kr", "hk"}},
+    {0xF2, {"kw", "qa", "kh", "ws", "in", "mo", "vn", "ph",
+            "jp", "sg", "mv", "id", "ae", "np", "vu"}},
+    {0xF3, {"la", "th", "to", "--", "--", "--", "--", "--",
+            "pg", "--", "ye", "--", "--", "fm", "mn"}} });
+
+  std::string result("--");
+
+  if (country_codes.find(ecc) != country_codes.end() && cid > 0) {
+    result = country_codes.at(ecc).at(cid - 1);
+  }
+
+  return result;
 }
 
 }  // namespace darc2json

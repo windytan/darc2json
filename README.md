@@ -7,7 +7,7 @@ multiplex signals.
 
 ## Supported features
 
-Currently, darc2json will only decode:
+Currently, darc2json will decode:
 
 * Block application channel: Layer 3 data
 * Long message channel: Layer 4 data
@@ -19,11 +19,12 @@ Currently, darc2json will only decode:
 * Synchronous Frame Messages
 * PLL and symbol synchronization
 * Error correction beyond single bit flips
-* More robust block synchronization?
-* More efficient handling of bitstrings
+* Perhaps don't trust short CRC as only error protection
+* Don't drop block sync at first error
+* More allocation-efficient handling of bitstrings
 * COT, SCOT, AFT, SAFT
 * Conditional Access at L4
-* Not repeating unchanged service messages
+* Don't repeat unchanged service messages
 
 ## Installation
 
