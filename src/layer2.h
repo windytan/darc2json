@@ -49,7 +49,6 @@ class L2Block {
   void PushBit(int bit);
   bool complete() const;
   int BicNum() const;
-  void print() const;
   bool crc_ok();
   Bits information_bits() const;
 

@@ -254,12 +254,8 @@ LongBlock::LongBlock(const Bits& info_bits) :
     is_last_fragment_(field(info_bits, 5, 1)),
     sequence_counter_(field(info_bits, 6, 4)),
     data_(info_bits.begin() + 16, info_bits.end()) {
-  Bits crc_rx(info_bits.begin() + 10, info_bits.begin() + 10 + 6);
-  Bits header_bits(info_bits.begin(), info_bits.begin() + 10);
-  Bits crc_calc = crc(header_bits, kL3LongMessageHeaderCRC);
-
-  bool di = field(info_bits, 4, 1);
-  l3_header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
+  // bool di = field(info_bits, 4, 1);
+  l3_header_crc_ok_ = check_crc(info_bits, kL3LongMessageHeaderCRC, 16);
 
   /*printf(" LF[%s] DI[%s] SC:%02d L3_CRC_OK[%s] ",
       is_last_fragment_ ? "x" : " ",
@@ -298,13 +294,14 @@ void LongMessage::push_block(const LongBlock& block) {
     is_complete_ = false;
   }
 
-  blocks_.push_back(block);
-  for (size_t n_byte = 0; n_byte < block.data_bits().size() / 8; n_byte++) {
-    bytes_.push_back(field(block.data_bits(), n_byte * 8, 8));
-  }
+  if (block.header_crc_ok()) {
+    blocks_.push_back(block);
+    for (uint8_t byte : bit_vector_to_reversed_bytes(block.data_bits()))
+      bytes_.push_back(byte);
 
-  if (block.is_last_fragment()) {
-    parse_l4_header();
+    if (block.is_last_fragment()) {
+      parse_l4_header();
+    }
   }
 }
 
@@ -326,18 +323,10 @@ void LongMessage::parse_l4_header() {
   is_first_ = fl & 1;
   is_last_ = fl & 2;
 
-  uint8_t crc_rx = bytes_[3 + ext] & 0x3f;
-  Bits header_bits;
-  for (int n_byte = 0; n_byte < 4 + ext; n_byte++) {
-    for (int n_bit = 0; n_bit < 8; n_bit++) {
-      header_bits.push_back((bytes_[n_byte] >> (7-n_bit)) & 1);
-    }
-  }
-  header_bits.resize((3 + ext) * 8 + 2);
-  uint8_t crc_calc =
-      field_rev(crc(header_bits, kL4LongMessageHeaderCRC), 0, 6);
+  Bits header_bits = reversed_bytes_to_bit_vector(bytes_);
+  header_bits.resize((4 + ext) * 8);
 
-  bool crc_ok = (crc_rx == crc_calc);
+  bool crc_ok = check_crc(header_bits, kL4LongMessageHeaderCRC, header_bits.size());
   bool complete = (static_cast<int>(bytes_.size()) >= dlen);
 
   /*printf("L4: RI:%d CI:%d ext:[%s] add:%03x com:[%s] caf:[%s] dlen:%3d "
@@ -420,7 +409,6 @@ void Layer3::push_block(const L2Block& l2block) {
       print_line(short_message_.to_json());*/
 
   } else if (silch == 0xA) {
-    //printf("LMCh ");
     long_message_.push_block(LongBlock(info_bits));
 
     if (long_message_.is_complete())
@@ -434,7 +422,7 @@ void Layer3::push_block(const L2Block& l2block) {
       data = Bits(info_bits.begin() + 8, info_bits.end());
       Json::Value json;
 
-      json["block_app"]["data"] = BitsToHexString(data);
+      json["block_app"]["l3data"] = BitsToHexString(data);
       print_line(json);
     }
     //printf("subch:%d ", subchannel);

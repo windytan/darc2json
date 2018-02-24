@@ -84,13 +84,14 @@ void lshift(Bits& bits) {
   bits[bits.size() - 1] = 0;
 }
 
-Bits _crc(const Bits& bits, const Bits& generator) {
+Bits crc(const Bits& bits, const Bits& generator, size_t message_length) {
+  assert(message_length <= bits.size());
   Bits result(generator.size() - 1);
 
-  for (int bit : bits) {
+  for (size_t n_bit = 0; n_bit < message_length; n_bit++) {
     int popped_bit = result[0];
     lshift(result);
-    result[result.size() - 1] = bit;
+    result[result.size() - 1] = bits[n_bit];
 
     // XOR if shifted-out bit was 1
     if (popped_bit) {
@@ -102,17 +103,16 @@ Bits _crc(const Bits& bits, const Bits& generator) {
   return result;
 }
 
-// Normal CRC calculation is done on zero-padded data
-Bits crc(Bits bits, const Bits& generator) {
+// Zero-pad data-only message and return calculated CRC
+/*Bits crc(Bits bits, const Bits& generator) {
   for (size_t i = 0; i < generator.size() - 1; i++)
     bits.push_back(0);
 
-  return _crc(bits, generator);
-}
+  return _crc(bits, generator, bits.size());
+}*/
 
-// Syndrome calculation is done on data + received CRC + parity
-Bits syndrome(const Bits& bits, const Bits& generator) {
-  return _crc(bits, generator);
+bool check_crc(const Bits& bits, const Bits& generator, size_t message_length) {
+  return AllBitsZero(crc(bits, generator, message_length));
 }
 
 bool BitsEqual(const Bits& bits1, const Bits& bits2) {
@@ -144,10 +144,10 @@ const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
   std::map<Bits, Bits> result;
 
   for (size_t i = 0; i < len; i++) {
-    Bits evector(len);
-    evector.at(i) = 1;
+    Bits error_vector(len);
+    error_vector.at(i) = 1;
 
-    result[syndrome(evector, generator)] = evector;
+    result[crc(error_vector, generator, error_vector.size())] = error_vector;
   }
 
   return result;
@@ -177,6 +177,35 @@ std::string BitsToHexString(const Bits& data) {
   }
 
   return ss.str();
+}
+
+bool AllBitsZero(const Bits& bits) {
+  bool result = true;
+  for (auto bit : bits) {
+    if (bit) {
+      result = false;
+      break;
+    }
+  }
+
+  return result;
+}
+
+Bits reversed_bytes_to_bit_vector(const std::vector<uint8_t>& bytes) {
+  Bits bits;
+  for (uint8_t byte : bytes)
+    for (int n_bit = 0; n_bit < 8; n_bit++)
+      bits.push_back((byte >> (7-n_bit)) & 1);
+
+  return bits;
+}
+
+std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
+  std::vector<uint8_t> bytes;
+  for (size_t n_byte = 0; n_byte < bits.size() / 8; n_byte++) {
+    bytes.push_back(field(bits, n_byte * 8, 8));
+  }
+  return bytes;
 }
 
 }  // namespace darc2json

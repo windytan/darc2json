@@ -96,34 +96,21 @@ Bits L2Block::information_bits() const {
 }
 
 bool L2Block::crc_ok() {
-  Bits crc_calc =
-    crc(information_bits(), kL2CRC);
-  Bits crc_rx(bits_.begin() + 176, bits_.begin() + 176 + 14);
+  Bits syndrome = crc(bits_, kL2HorizontalParity, 176 + 14 + 82);
 
-  bool is_ok = BitsEqual(crc_rx, crc_calc);
+  bool is_ok = AllBitsZero(syndrome);
 
   if (!is_ok) {
-    Bits syn = syndrome(bits_, kL2HorizontalParity);
-
-    if (parity_syndrome_errors.count(syn) != 0) {
-      Bits evector = parity_syndrome_errors.at(syn);
+    if (parity_syndrome_errors.count(syndrome) != 0) {
+      Bits evector = parity_syndrome_errors.at(syndrome);
       for (size_t i = 0; i < evector.size(); i++)
         bits_[i] ^=  evector[i];
 
-      crc_calc = crc(information_bits(), kL2CRC);
-      crc_rx = Bits(bits_.begin() + 176, bits_.begin() + 176 + 14);
-      is_ok = BitsEqual(crc_rx, crc_calc);
+      is_ok = AllBitsZero(crc(bits_, kL2HorizontalParity, 176 + 14 + 82));
     }
   }
 
   return is_ok;
-}
-
-void L2Block::print() const {
-  if (bic_ == BIC4) {
-    printf("(vertical parity)");
-  }
-  printf("\n");
 }
 
 Layer2::Layer2() : bic_register_(0x0000), block_(BicFor(bic_register_)),

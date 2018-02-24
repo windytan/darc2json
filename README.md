@@ -11,8 +11,8 @@ The default input sample rate is 228 kHz.
 
 Currently, darc2json will decode:
 
-* Block application channel: Layer 3 data
 * Long message channel: Layer 4 data
+* Block application channel: Layer 3 data
 * TDT: Country code, network name, date and time
 
 ## TODO
@@ -21,7 +21,6 @@ Currently, darc2json will decode:
 * Synchronous Frame Messages
 * PLL and symbol synchronization
 * Error correction beyond single bit flips
-* Perhaps don't trust short CRC as only error protection
 * Don't drop block sync at first error
 * More allocation-efficient handling of bitstrings
 * COT, SCOT, AFT, SAFT
