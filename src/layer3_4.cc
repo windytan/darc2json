@@ -27,6 +27,7 @@
 namespace darc2json {
 
 const Bits kL3ShortMessageHeaderCRC = poly_coeffs_to_bits({6, 4, 3, 0});
+const Bits kL4ShortMessageHeaderCRC = poly_coeffs_to_bits({8, 5, 4, 3, 0});
 const Bits kL3LongMessageHeaderCRC  = poly_coeffs_to_bits({6, 4, 3, 0});
 const Bits kL4LongMessageHeaderCRC  = poly_coeffs_to_bits({6, 4, 3, 0});
 
@@ -314,12 +315,15 @@ void LongMessage::parse_l4_header() {
 
   int  ri   = bytes_[0] >> 6;
   int  ci   = (bytes_[0] >> 4) & 0x3;
-  fl_   = (bytes_[0] >> 2) & 0x3;
+  int  fl   = (bytes_[0] >> 2) & 0x3;
   bool ext  = (bytes_[0] >> 1) & 1;
   int  add  = ((bytes_[0] & 1) << 8) + bytes_[1];
   bool com  = (bytes_[2 + ext] >> 7) & 1;
   bool caf  = (bytes_[2 + ext] >> 6) & 1;
   int  dlen = ((bytes_[2 + ext] & 0x3f) << 2) + (bytes_[3 + ext] >> 6);
+
+  is_first_ = fl & 1;
+  is_last_ = fl & 2;
 
   uint8_t crc_rx = bytes_[3 + ext] & 0x3f;
   Bits header_bits;
@@ -379,6 +383,8 @@ bool LongMessage::is_complete() const {
 Json::Value LongMessage::to_json() const {
   Json::Value json;
 
+  json["long_message"]["first"] = is_first_;
+  json["long_message"]["last"] = is_last_;
   json["long_message"]["l4data"] = BytesToHexString(bytes_);
 
   return json;

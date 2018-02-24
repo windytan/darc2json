@@ -23,7 +23,6 @@ Currently, darc2json will only decode:
 * More efficient handling of bitstrings
 * COT, SCOT, AFT, SAFT
 * Conditional Access at L4
-* First/Last flags at L4 long messages
 * Not repeating unchanged service messages
 
 ## Installation

@@ -102,8 +102,9 @@ class LongMessage {
   bool is_complete_;
   std::vector<LongBlock> blocks_;
   Bytes bytes_;
+  bool is_first_;
+  bool is_last_;
   bool l4_header_crc_ok_;
-  int fl_;
 };
 
 class Layer3 {
@@ -116,7 +117,6 @@ class Layer3 {
  private:
   Options options_;
   ServiceMessage service_message_;
-  ShortMessage short_message_;
   LongMessage long_message_;
 
   Json::StreamWriterBuilder writer_builder_;
