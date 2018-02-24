@@ -248,61 +248,6 @@ Json::Value ServiceMessage::to_json() const {
   return json;
 }
 
-ShortBlock::ShortBlock(const Bits& info_bits) :
-    is_last_fragment_(field(info_bits, 5, 1)),
-    sequence_counter_(field(info_bits, 6, 4)) {
-  Bits crc_rx(info_bits.begin() + 10, info_bits.begin() + 10 + 6);
-  Bits header_bits(info_bits.begin(), info_bits.begin() + 10);
-  Bits crc_calc = crc(header_bits, kL3ShortMessageHeaderCRC);
-
-  header_crc_ok_ = BitsEqual(crc_rx, crc_calc);
-
-  /*printf("crc_rx(%s)", BitString(crc_rx).c_str());
-  printf("crc_calc(%s)", BitString(crc_calc).c_str());
-
-  printf(" LF[%s] SC:%d CRC_OK[%s]\n",
-      is_last_fragment_ ? "x" : " ",
-     sequence_counter_,
-      header_crc_ok_ ? "x" : " ");*/
-}
-
-bool ShortBlock::is_last_fragment() const {
-  return is_last_fragment_;
-}
-
-bool ShortBlock::header_crc_ok() const {
-  return header_crc_ok_;
-}
-
-bool ShortBlock::follows_in_sequence(const ShortBlock& previous) const {
-  return sequence_counter_ == previous.sequence_counter_ + 1;
-}
-
-ShortMessage::ShortMessage() {
-}
-
-void ShortMessage::push_block(const ShortBlock& block) {
-  blocks_.push_back(block);
-}
-
-bool ShortMessage::is_complete() const {
-  bool is_complete = false;
-
-  if (blocks_.empty()) {
-    is_complete = false;
-  } else if (blocks_.size() == 1) {
-    is_complete = blocks_[0].is_last_fragment();
-  } else {
-    is_complete = blocks_[0].is_last_fragment();
-    for (size_t i = 1; i < blocks_.size(); i++) {
-      if (!blocks_[i].follows_in_sequence(blocks_[i - 1]))
-        is_complete = false;
-    }
-  }
-
-  return is_complete;
-}
-
 LongBlock::LongBlock(const Bits& info_bits) :
     is_last_fragment_(field(info_bits, 5, 1)),
     sequence_counter_(field(info_bits, 6, 4)),
@@ -347,7 +292,7 @@ void LongMessage::push_block(const LongBlock& block) {
   if (blocks_.size() > 0 && !block.follows_in_sequence(blocks_.back())) {
     blocks_.clear();
     bytes_.clear();
-    header_crc_ok_ = false;
+    l4_header_crc_ok_ = false;
     is_complete_ = false;
   }
 
@@ -357,12 +302,12 @@ void LongMessage::push_block(const LongBlock& block) {
   }
 
   if (block.is_last_fragment()) {
-    parse_header();
+    parse_l4_header();
   }
 }
 
-void LongMessage::parse_header() {
-  header_crc_ok_ = false;
+void LongMessage::parse_l4_header() {
+  l4_header_crc_ok_ = false;
 
   if (blocks_.empty())
     return;
@@ -461,8 +406,12 @@ void Layer3::push_block(const L2Block& l2block) {
       print_line(service_message_.to_json());
 
   } else if (silch == 0x9) {
-    //printf("SMCh ");
+    /*printf("SMCh ");
     short_message_.push_block(ShortBlock(info_bits));
+
+    if (short_message_.is_complete())
+      print_line(short_message_.to_json());*/
+
   } else if (silch == 0xA) {
     //printf("LMCh ");
     long_message_.push_block(LongBlock(info_bits));

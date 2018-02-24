@@ -71,31 +71,6 @@ class ServiceMessage {
   bool is_complete_;
 };
 
-class ShortBlock {
- public:
-  ShortBlock(const Bits& info_bits);
-  bool is_last_fragment() const;
-  bool header_crc_ok() const;
-
-  bool follows_in_sequence(const ShortBlock& previous) const;
-
- private:
-  bool is_last_fragment_;
-  int sequence_counter_;
-  bool header_crc_ok_;
-  Bits data_;
-};
-
-class ShortMessage {
- public:
-  ShortMessage();
-  void push_block(const ShortBlock& block);
-  bool is_complete() const;
-
- private:
-  std::vector<ShortBlock> blocks_;
-};
-
 class LongBlock {
  public:
   LongBlock(const Bits& info_bits);
@@ -122,12 +97,12 @@ class LongMessage {
   Bytes bytes() const;
 
  private:
-  void parse_header();
+  void parse_l4_header();
 
   bool is_complete_;
   std::vector<LongBlock> blocks_;
   Bytes bytes_;
-  bool header_crc_ok_;
+  bool l4_header_crc_ok_;
   int fl_;
 };
 
