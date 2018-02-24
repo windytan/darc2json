@@ -1,9 +1,11 @@
 # darc2json
 
-darc2json is a DARC demodulator. It takes a 228 kHz FM multiplex signal as
+darc2json is a DARC demodulator. It takes an FM multiplex signal as
 input, in raw PCM format, and outputs line-delimited JSON messages. It was
 designed to be used with the RTL-SDR tool `rtl_fm`, but it can read any FM
 multiplex signals.
+
+The default input sample rate is 228 kHz.
 
 ## Supported features
 
