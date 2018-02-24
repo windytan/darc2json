@@ -155,9 +155,8 @@ Json::Value ServiceMessage::to_json() const {
 
   Bits data = data_bits();
 
-  std::vector<uint8_t> data_bytes;
-  for (size_t n_byte = 0; n_byte < data.size() / 8; n_byte++)
-    data_bytes.push_back(field(data, n_byte * 8, 8));
+  std::vector<uint8_t> data_bytes =
+      bit_vector_to_reversed_bytes(data);
 
   json["country_code"] = country_id();
   json["network_id"] = network_id();
@@ -177,13 +176,10 @@ Json::Value ServiceMessage::to_json() const {
     Bits time_bits(data.begin() + 3*8, data.begin() + 7*8 + 1);
     Bits date_bits(data.begin() + 7*8, data.begin() + 10*8 + 1);
 
-    int modified_julian_date =
-        ((data_bytes[7] & 0x7ff) << 10) +
-        (data_bytes[8] << 2) +
-        (data_bytes[9] >> 6);
+    int modified_julian_date = bfield(data_bytes, 7, 6, 17);
 
-    double local_offset = (((data_bytes[5] >> 5) & 1) ? -1 : 1) *
-        (data_bytes[5] & 0x1f) / 2.0;
+    double local_offset = (bfield(data_bytes, 5, 5, 1) ? -1 : 1) *
+        bfield(data_bytes, 5, 4, 5) / 2.0;
     modified_julian_date += local_offset / 24.0;
 
     int year = (modified_julian_date - 15078.2) / 365.25;
@@ -200,9 +196,11 @@ Json::Value ServiceMessage::to_json() const {
 
     int local_offset_min = (local_offset - std::trunc(local_offset)) * 60;
 
-    int hour = (data_bytes[3] >> 2) & 0x1f;
-    int minute = ((data_bytes[3] & 3) << 4) + (data_bytes[4] >> 4);
-    int seconds = ((data_bytes[4] & 0xf) << 2) + (data_bytes[5] >> 6);
+    bool eta = bfield(data_bytes, 3, 7, 1);
+    uint8_t taf = data_bytes[6];
+    int hour = bfield(data_bytes, 3, 6, 5);
+    int minute = bfield(data_bytes, 3, 1, 6);
+    int seconds = bfield(data_bytes, 4, 3, 6);
 
     bool is_date_valid = (month >= 1 && month <= 12 && day >= 1 && day <= 31 &&
                           hour >= 0 && hour <= 23 && minute >= 0 &&
@@ -223,22 +221,16 @@ Json::Value ServiceMessage::to_json() const {
       }
       json["service_message"]["clock_time"] = std::string(buffer);
     }
-    /*bool eta = field(time_bits, 0, 1);
-    int hours = field(time_bits, 1, 5);
-    int minutes = field(time_bits, 6, 6);
-    int seconds = field(time_bits, 12, 6);
-    int lto = field(time_bits, 18, 6);*/
 
-    int name_len = field(date_bits, 2*8 + 2, 4);
+    size_t name_len = bfield(data_bytes, 9, 5, 4);
     std::string name;
-    if (static_cast<int>(data.size()) >= (10 + name_len) * 8) {
-      for (int i = 0; i < name_len; i++) {
-        char c = field(data, (10 + i) * 8, 8);
-        name += c;
+    if (data_bytes.size() >= 10 + name_len - 1) {
+      for (size_t i = 0; i < name_len; i++) {
+        name += (char)(data_bytes[10 + i]);
       }
     }
     json["service_message"]["network_name"] = name;
-    //json["service_message"]["time"] = TimeString(hours, minutes, seconds);
+    json["service_message"]["time_accurate"] = eta;
 
     bool has_position = field(date_bits, 2*9 + 6, 1);
 
@@ -253,16 +245,15 @@ Json::Value ServiceMessage::to_json() const {
 LongBlock::LongBlock(const Bits& info_bits) :
     is_last_fragment_(field(info_bits, 5, 1)),
     sequence_counter_(field(info_bits, 6, 4)),
-    data_(info_bits.begin() + 16, info_bits.end()) {
+    bytes_(bit_vector_to_reversed_bytes(Bits(info_bits.begin() + 16,
+                                             info_bits.end()))) {
   // bool di = field(info_bits, 4, 1);
   l3_header_crc_ok_ = check_crc(info_bits, kL3LongMessageHeaderCRC, 16);
 
-  /*printf(" LF[%s] DI[%s] SC:%02d L3_CRC_OK[%s] ",
+/*  printf(" LF[%s] SC:%02d L3_CRC_OK[%s]\n",
       is_last_fragment_ ? "x" : " ",
-      di ? "x" : " ",
       sequence_counter_,
-      header_crc_ok_ ? "x" : " ");
-  printf("%s\n", BitString(data_).c_str());*/
+      l3_header_crc_ok_ ? "x" : " ");*/
 }
 
 bool LongBlock::is_last_fragment() const {
@@ -279,11 +270,11 @@ bool LongBlock::follows_in_sequence(const LongBlock& previous) const {
          !previous.is_last_fragment();
 }
 
-Bits LongBlock::data_bits() const {
-  return data_;
+Bits LongBlock::data() const {
+  return bytes_;
 }
 
-LongMessage::LongMessage() : is_complete_(false) {
+LongMessage::LongMessage() : is_complete_(false), l4_header_crc_ok_(false) {
 }
 
 void LongMessage::push_block(const LongBlock& block) {
@@ -296,12 +287,11 @@ void LongMessage::push_block(const LongBlock& block) {
 
   if (block.header_crc_ok()) {
     blocks_.push_back(block);
-    for (uint8_t byte : bit_vector_to_reversed_bytes(block.data_bits()))
+    for (uint8_t byte : block.data())
       bytes_.push_back(byte);
 
-    if (block.is_last_fragment()) {
+    if (block.is_last_fragment())
       parse_l4_header();
-    }
   }
 }
 
@@ -311,31 +301,31 @@ void LongMessage::parse_l4_header() {
   if (blocks_.empty())
     return;
 
-  int  ri   = bytes_[0] >> 6;
-  int  ci   = (bytes_[0] >> 4) & 0x3;
-  int  fl   = (bytes_[0] >> 2) & 0x3;
-  bool ext  = (bytes_[0] >> 1) & 1;
-  int  add  = ((bytes_[0] & 1) << 8) + bytes_[1];
-  bool com  = (bytes_[2 + ext] >> 7) & 1;
-  bool caf  = (bytes_[2 + ext] >> 6) & 1;
-  int  dlen = ((bytes_[2 + ext] & 0x3f) << 2) + (bytes_[3 + ext] >> 6);
+  Bits header_bits = reversed_bytes_to_bit_vector(bytes_);
+
+  int  ci     = field(header_bits, 2, 2);
+  int  fl     = field(header_bits, 4, 2);
+  bool ext    = field(header_bits, 6, 1);
+  bool caf    = field(header_bits, 17, 1);
+  //size_t dlen = field(header_bits, 18 + ext * 8, 8);
 
   is_first_ = fl & 1;
   is_last_ = fl & 2;
 
-  Bits header_bits = reversed_bytes_to_bit_vector(bytes_);
+  if (caf)
+    return;
+
   header_bits.resize((4 + ext) * 8);
 
-  bool crc_ok = check_crc(header_bits, kL4LongMessageHeaderCRC, header_bits.size());
-  bool complete = (static_cast<int>(bytes_.size()) >= dlen);
+  bool crc_ok = check_crc(header_bits, kL4LongMessageHeaderCRC,
+                          header_bits.size());
+  bool complete = true;//(bytes_.size() >= dlen);
 
-  /*printf("L4: RI:%d CI:%d ext:[%s] add:%03x com:[%s] caf:[%s] dlen:%3d "
+
+  /*printf("L4: CI:%d ext:[%s] caf:[%s] dlen:%3ld "
          "(rx: %3ld) L4_CRC_OK[%s]",
-      ri,
       ci,
       ext ? "x" : " ",
-      add,
-      com ? "x" : " ",
       caf ? "x" : " ",
       dlen,
       bytes_.size(),
@@ -346,7 +336,7 @@ void LongMessage::parse_l4_header() {
   printf("\n");*/
   if (crc_ok && complete) {
     is_complete_ = true;
-    bytes_.resize(dlen);
+    //bytes_.resize(dlen);
     /*printf("data: ");
     for (uint8_t c : bytes_)
       printf("%02x ", c);
@@ -355,15 +345,6 @@ void LongMessage::parse_l4_header() {
 
   }
   //printf("\n\n");
-}
-
-Bits LongMessage::bits() const {
-  Bits result;
-  for (LongBlock block : blocks_)
-    for (int bit : block.data_bits())
-      result.push_back(bit);
-
-  return result;
 }
 
 bool LongMessage::is_complete() const {

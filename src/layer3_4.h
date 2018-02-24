@@ -76,7 +76,7 @@ class LongBlock {
   LongBlock(const Bits& info_bits);
   bool is_last_fragment() const;
   bool header_crc_ok() const;
-  Bits data_bits() const;
+  Bits data() const;
 
   bool follows_in_sequence(const LongBlock& previous) const;
 
@@ -84,7 +84,7 @@ class LongBlock {
   bool is_last_fragment_;
   int sequence_counter_;
   bool l3_header_crc_ok_;
-  Bits data_;
+  std::vector<uint8_t> bytes_;
 };
 
 class LongMessage {
@@ -93,8 +93,6 @@ class LongMessage {
   void push_block(const LongBlock& block);
   bool is_complete() const;
   Json::Value to_json() const;
-  Bits bits() const;
-  Bytes bytes() const;
 
  private:
   void parse_l4_header();

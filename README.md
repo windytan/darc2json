@@ -17,6 +17,7 @@ Currently, darc2json will decode:
 
 ## TODO
 
+* Don't zero-pad L4 Long messages
 * Short message channel
 * Synchronous Frame Messages
 * PLL and symbol synchronization

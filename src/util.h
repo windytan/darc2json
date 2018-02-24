@@ -51,5 +51,8 @@ bool AllBitsZero(const Bits& bits);
 Bits reversed_bytes_to_bit_vector(const std::vector<uint8_t>& bytes);
 std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits);
 
+uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte,
+                size_t start_bit, size_t length);
+
 }  // namespace darc2json
 #endif  // UTIL_H_

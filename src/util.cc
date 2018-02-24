@@ -208,4 +208,24 @@ std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
   return bytes;
 }
 
+// Extract a field from a vector of bytes.
+// The bit numbering in a byte corresponds to that used in the DARC
+// specification.
+uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte,
+                size_t start_bit, size_t length) {
+  uint32_t result = 0;
+  int n_byte = start_byte;
+  int n_bit = start_bit;
+  for (size_t n_bit_result = 0; n_bit_result < length; n_bit_result++) {
+    result += ((bytes[n_byte] >> n_bit) & 1) << (length - n_bit_result - 1);
+    n_bit--;
+    if (n_bit < 0) {
+      n_byte++;
+      n_bit = 7;
+    }
+  }
+
+  return result;
+}
+
 }  // namespace darc2json
