@@ -11,13 +11,14 @@ The default input sample rate is 228 kHz.
 
 Currently, darc2json will decode:
 
-* Long message channel: Layer 4 data
+* L5 Group Data (type 12)
+* Raw Layer 4 LMCh data if type is something else
 * Block application channel: Layer 3 data
 * TDT: Country code, network name, date and time
 
 ## TODO
 
-* Don't zero-pad L4 Long messages
+* Fragmented L5
 * Short message channel
 * Synchronous Frame Messages
 * PLL and symbol synchronization

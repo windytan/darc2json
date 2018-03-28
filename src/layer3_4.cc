@@ -356,7 +356,42 @@ Json::Value LongMessage::to_json() const {
 
   json["long_message"]["first"] = is_first_;
   json["long_message"]["last"] = is_last_;
-  json["long_message"]["l4data"] = BytesToHexString(bytes_);
+
+  if (is_first_ && is_last_) {
+    bool has_crc = (bytes_[0] >> 6) & 1;
+    int type = (bytes_[0]) & 0xf;
+    json["long_message"]["has_crc"] = has_crc;
+    json["long_message"]["type"] = type;
+    //printf("lm:%s\n",BytesToHexString(bytes_).c_str());
+    if (type == 12) {
+      int transport_id = bfield(bytes_, 3, 0, 16);
+      int len = bfield(bytes_, 2, 7, 4);//ibytes_[2] & 0xf;
+      json["long_message"]["transport_id"] = transport_id;
+      json["long_message"]["hlen"] = len;
+
+      size_t nbyte = 5;
+      while (nbyte < bytes_.size()-1) {
+        uint8_t tag = bytes_[nbyte];
+        nbyte++;
+        uint8_t len = bytes_[nbyte];
+        nbyte++;
+        if (len > 0) {
+          std::vector<uint8_t> tlv_bytes;
+          for (int l = 0; l < len && nbyte < bytes_.size(); l++) {
+            tlv_bytes.push_back(bytes_[nbyte]);
+            nbyte++;
+          }
+          Json::Value group_data(BytesToHexString(tlv_bytes));
+          if (!tlv_bytes.empty())
+            json["long_message"]["group_data"].append(group_data);
+        }
+      }
+    } else {
+      json["long_message"]["l4data"] = BytesToHexString(bytes_);
+    }
+  } else {
+    json["long_message"]["l4data"] = BytesToHexString(bytes_);
+  }
 
   return json;
 }
