@@ -21,22 +21,23 @@
 
 namespace darc2json {
 
-const float kTargetSampleRate_Hz  = 228000.0f;
-const int   kNumBlerAverageGroups = 12;
+const float kTargetSampleRate_Hz = 228000.0f;
+const int kNumBlerAverageGroups  = 12;
 
-enum eInputType {
-  INPUT_MPX_STDIN, INPUT_MPX_SNDFILE, INPUT_ASCIIBITS, INPUT_HEX
-};
+enum eInputType { INPUT_MPX_STDIN, INPUT_MPX_SNDFILE, INPUT_ASCIIBITS, INPUT_HEX };
 
-enum eOutputType {
-  OUTPUT_HEX, OUTPUT_JSON
-};
+enum eOutputType { OUTPUT_HEX, OUTPUT_JSON };
 
 struct Options {
-  Options() : feed_thru(false), show_partial(false),
-              just_exit(false), timestamp(false), bler(false),
-              samplerate(kTargetSampleRate_Hz),
-              input_type(INPUT_MPX_STDIN), output_type(OUTPUT_JSON) {}
+  Options()
+      : feed_thru(false),
+        show_partial(false),
+        just_exit(false),
+        timestamp(false),
+        bler(false),
+        samplerate(kTargetSampleRate_Hz),
+        input_type(INPUT_MPX_STDIN),
+        output_type(OUTPUT_JSON) {}
   bool feed_thru;
   bool show_partial;
   bool just_exit;

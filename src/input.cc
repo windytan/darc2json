@@ -32,10 +32,10 @@ bool MPXReader::eof() const {
   return is_eof_;
 }
 
-StdinReader::StdinReader(const Options& options) :
-    samplerate_(options.samplerate),
-    buffer_(new (std::nothrow) int16_t[kInputBufferSize]),
-    feed_thru_(options.feed_thru) {
+StdinReader::StdinReader(const Options& options)
+    : samplerate_(options.samplerate),
+      buffer_(new(std::nothrow) int16_t[kInputBufferSize]),
+      feed_thru_(options.feed_thru) {
   is_eof_ = false;
 }
 
@@ -44,8 +44,7 @@ StdinReader::~StdinReader() {
 }
 
 std::vector<float> StdinReader::ReadChunk() {
-  int num_read = fread(buffer_, sizeof(buffer_[0]), kInputBufferSize,
-      stdin);
+  int num_read = fread(buffer_, sizeof(buffer_[0]), kInputBufferSize, stdin);
 
   if (feed_thru_)
     fwrite(buffer_, sizeof(buffer_[0]), num_read, stdout);
@@ -54,8 +53,7 @@ std::vector<float> StdinReader::ReadChunk() {
     is_eof_ = true;
 
   std::vector<float> chunk(num_read);
-  for (int i = 0; i < num_read; i++)
-    chunk[i] = buffer_[i];
+  for (int i = 0; i < num_read; i++) chunk[i] = buffer_[i];
 
   return chunk;
 }
@@ -65,10 +63,10 @@ float StdinReader::samplerate() const {
 }
 
 #ifdef HAVE_SNDFILE
-SndfileReader::SndfileReader(const Options& options) :
-    info_({0, 0, 0, 0, 0, 0}),
-    file_(sf_open(options.sndfilename.c_str(), SFM_READ, &info_)),
-    buffer_(new (std::nothrow) float[info_.channels * kInputBufferSize]) {
+SndfileReader::SndfileReader(const Options& options)
+    : info_({0, 0, 0, 0, 0, 0}),
+      file_(sf_open(options.sndfilename.c_str(), SFM_READ, &info_)),
+      buffer_(new(std::nothrow) float[info_.channels * kInputBufferSize]) {
   is_eof_ = false;
   if (info_.frames == 0) {
     std::cerr << "error: couldn't open " << options.sndfilename << '\n';
@@ -98,8 +96,7 @@ std::vector<float> SndfileReader::ReadChunk() {
     chunk = std::vector<float>(buffer_, buffer_ + num_read);
   } else {
     chunk = std::vector<float>(num_read);
-    for (size_t i = 0; i < chunk.size(); i++)
-      chunk[i] = buffer_[i * info_.channels];
+    for (size_t i = 0; i < chunk.size(); i++) chunk[i] = buffer_[i * info_.channels];
   }
   return chunk;
 }
@@ -109,12 +106,10 @@ float SndfileReader::samplerate() const {
 }
 #endif
 
-AsciiBitReader::AsciiBitReader(const Options& options) :
-    is_eof_(false), feed_thru_(options.feed_thru) {
-}
+AsciiBitReader::AsciiBitReader(const Options& options)
+    : is_eof_(false), feed_thru_(options.feed_thru) {}
 
-AsciiBitReader::~AsciiBitReader() {
-}
+AsciiBitReader::~AsciiBitReader() {}
 
 int AsciiBitReader::NextBit() {
   int chr = 0;

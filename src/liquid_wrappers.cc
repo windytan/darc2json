@@ -68,8 +68,7 @@ std::complex<float> FIRFilter::execute() {
   return result;
 }
 
-NCO::NCO(liquid_ncotype type, float freq) :
-    object_(nco_crcf_create(type)), did_cross_zero_(false) {
+NCO::NCO(liquid_ncotype type, float freq) : object_(nco_crcf_create(type)), did_cross_zero_(false) {
   nco_crcf_set_frequency(object_, freq);
 }
 
@@ -89,8 +88,7 @@ std::complex<float> NCO::MixUp(std::complex<float> s) {
   return result;
 }
 
-void NCO::MixBlockDown(std::complex<float>* x, std::complex<float>* y,
-    int n) {
+void NCO::MixBlockDown(std::complex<float>* x, std::complex<float>* y, int n) {
   nco_crcf_mix_block_down(object_, x, y, n);
 }
 
@@ -99,8 +97,7 @@ void NCO::Step() {
   nco_crcf_step(object_);
   float current_value = nco_crcf_cos(object_);
 
-  if ((prev_value <= 0.f && current_value > 0.f) ||
-      (prev_value >  0.f && current_value <= 0.f))
+  if ((prev_value <= 0.f && current_value > 0.f) || (prev_value > 0.f && current_value <= 0.f))
     did_cross_zero_ = true;
 }
 
@@ -117,7 +114,7 @@ float NCO::frequency() {
 }
 
 bool NCO::DidCrossZero() {
-  bool temp = did_cross_zero_;
+  bool temp       = did_cross_zero_;
   did_cross_zero_ = false;
   return temp;
 }
@@ -126,10 +123,9 @@ float NCO::cos() {
   return nco_crcf_cos(object_);
 }
 
-SymSync::SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m,
-    float beta, unsigned num_filters) :
-  object_(symsync_crcf_create_rnyquist(ftype, k, m, beta, num_filters)) {
-}
+SymSync::SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m, float beta,
+                 unsigned num_filters)
+    : object_(symsync_crcf_create_rnyquist(ftype, k, m, beta, num_filters)) {}
 
 SymSync::~SymSync() {
   symsync_crcf_destroy(object_);
@@ -153,14 +149,11 @@ std::vector<std::complex<float>> SymSync::execute(std::complex<float>* in) {
   return result;
 }
 
-FSKdem::FSKdem(unsigned k, float bw) : object_(fskdem_create(1, k, bw)) {
-}
+FSKdem::FSKdem(unsigned k, float bw) : object_(fskdem_create(1, k, bw)) {}
 
-FSKdem::~FSKdem() {
-}
+FSKdem::~FSKdem() {}
 
-Freqdem::Freqdem(float factor) : object_(freqdem_create(factor)) {
-}
+Freqdem::Freqdem(float factor) : object_(freqdem_create(factor)) {}
 
 Freqdem::~Freqdem() {
   freqdem_destroy(object_);
@@ -176,8 +169,7 @@ unsigned int FSKdem::Demodulate(std::complex<float> in) {
   return fskdem_demodulate(object_, &in);
 }
 
-Modem::Modem(modulation_scheme scheme) : object_(modem_create(scheme)) {
-}
+Modem::Modem(modulation_scheme scheme) : object_(modem_create(scheme)) {}
 
 Modem::~Modem() {
   modem_destroy(object_);
@@ -195,8 +187,8 @@ float Modem::phase_error() {
   return modem_get_demodulator_phase_error(object_);
 }
 
-Resampler::Resampler(float ratio, int length) :
-    object_(resamp_crcf_create(ratio, length, 0.47f, 60.0f, 32)) {
+Resampler::Resampler(float ratio, int length)
+    : object_(resamp_crcf_create(ratio, length, 0.47f, 60.0f, 32)) {
   assert(ratio <= 2.0f);
 }
 
@@ -208,8 +200,7 @@ void Resampler::set_rate(float rate) {
   resamp_crcf_set_rate(object_, rate);
 }
 
-unsigned int Resampler::execute(std::complex<float> in,
-                                std::complex<float>* out) {
+unsigned int Resampler::execute(std::complex<float> in, std::complex<float>* out) {
   unsigned int num_written;
   resamp_crcf_execute(object_, in, out, &num_written);
 

@@ -33,7 +33,7 @@ class MPXReader {
  public:
   bool eof() const;
   virtual std::vector<float> ReadChunk() = 0;
-  virtual float samplerate() const = 0;
+  virtual float samplerate() const       = 0;
 
  protected:
   bool is_eof_;

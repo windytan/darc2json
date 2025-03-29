@@ -54,8 +54,7 @@ class NCO {
   ~NCO();
   std::complex<float> MixDown(std::complex<float> s);
   std::complex<float> MixUp(std::complex<float> s);
-  void MixBlockDown(std::complex<float>* x, std::complex<float>* y,
-      int n);
+  void MixBlockDown(std::complex<float>* x, std::complex<float>* y, int n);
   bool DidCrossZero();
   void Step();
   void set_pll_bandwidth(float);
@@ -70,8 +69,7 @@ class NCO {
 
 class SymSync {
  public:
-  SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m,
-          float beta, unsigned num_filters);
+  SymSync(liquid_firfilt_type ftype, unsigned k, unsigned m, float beta, unsigned num_filters);
   ~SymSync();
   void set_bandwidth(float);
   void set_output_rate(unsigned);
@@ -126,4 +124,4 @@ class Resampler {
 
 }  // namespace liquid
 
-#endif // LIQUID_WRAPPERS_H_
+#endif  // LIQUID_WRAPPERS_H_

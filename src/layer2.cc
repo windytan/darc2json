@@ -30,8 +30,7 @@ const uint16_t kBic4 = 0xC875;
 
 const Bits kL2CRC = poly_coeffs_to_bits({14, 11, 2, 0});
 const Bits kL2HorizontalParity =
-    poly_coeffs_to_bits({82, 77, 76, 71, 67, 66, 56, 52, 48, 40, 36, 34, 24,
-                         22, 18, 10, 4, 0});
+    poly_coeffs_to_bits({82, 77, 76, 71, 67, 66, 56, 52, 48, 40, 36, 34, 24, 22, 18, 10, 4, 0});
 
 const std::map<Bits, Bits> parity_syndrome_errors =
     create_bitflip_syndrome_map(272, kL2HorizontalParity);
@@ -52,15 +51,13 @@ eBic BicFor(uint16_t word) {
 }
 
 Descrambler::Descrambler() : bit_counter_(0) {
-  const std::vector<uint16_t> seq_words(
-      {0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd,
-       0xb343, 0xbc3f, 0xe0f7, 0xc5cc, 0x8253, 0xb479, 0xf362,
-       0xa471, 0xb571, 0x3110, 0x0846, 0x1390});
+  const std::vector<uint16_t> seq_words({0xafaa, 0x814a, 0xf2ee, 0x073a, 0x4f5d, 0x4486, 0x70bd,
+                                         0xb343, 0xbc3f, 0xe0f7, 0xc5cc, 0x8253, 0xb479, 0xf362,
+                                         0xa471, 0xb571, 0x3110, 0x0846, 0x1390});
 
   for (size_t n_word = 0; n_word < seq_words.size(); n_word++)
     for (int n_bit = 0; n_bit < 16; n_bit++)
       sequence_[16 * n_word + n_bit] = (seq_words[n_word] >> (15 - n_bit)) & 1;
-
 }
 
 int Descrambler::Descramble(int bit) {
@@ -69,12 +66,9 @@ int Descrambler::Descramble(int bit) {
   return result;
 }
 
-L2Block::L2Block(eBic _bic) : bic_(_bic), bits_(272), bit_counter_(0),
-                          descrambler_() {
-}
+L2Block::L2Block(eBic _bic) : bic_(_bic), bits_(272), bit_counter_(0), descrambler_() {}
 
-L2Block::~L2Block() {
-}
+L2Block::~L2Block() {}
 
 void L2Block::PushBit(int bit) {
   if (bit_counter_ < bits_.size()) {
@@ -103,8 +97,7 @@ bool L2Block::crc_ok() {
   if (!is_ok) {
     if (parity_syndrome_errors.count(syndrome) != 0) {
       Bits evector = parity_syndrome_errors.at(syndrome);
-      for (size_t i = 0; i < evector.size(); i++)
-        bits_[i] ^=  evector[i];
+      for (size_t i = 0; i < evector.size(); i++) bits_[i] ^= evector[i];
 
       is_ok = AllBitsZero(crc(bits_, kL2HorizontalParity, 176 + 14 + 82));
     }
@@ -113,15 +106,11 @@ bool L2Block::crc_ok() {
   return is_ok;
 }
 
-Layer2::Layer2() : bic_register_(0x0000), block_(BicFor(bic_register_)),
-                   in_sync_(false) {
-}
+Layer2::Layer2() : bic_register_(0x0000), block_(BicFor(bic_register_)), in_sync_(false) {}
 
-Layer2::~Layer2() {
-}
+Layer2::~Layer2() {}
 
 std::vector<L2Block> Layer2::PushBit(int bit) {
-
   std::vector<L2Block> blocks;
 
   if (in_sync_) {
@@ -134,7 +123,7 @@ std::vector<L2Block> Layer2::PushBit(int bit) {
   } else {
     bic_register_ = (bic_register_ << 1) + bit;
     if (IsValidBic(bic_register_)) {
-      block_ = L2Block(BicFor(bic_register_));
+      block_   = L2Block(BicFor(bic_register_));
       in_sync_ = true;
     }
   }

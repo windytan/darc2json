@@ -29,8 +29,7 @@ namespace darc2json {
 
 enum eBic { BIC1, BIC2, BIC3, BIC4 };
 
-uint32_t field(const Bits& bits,
-               int start_at, int length);
+uint32_t field(const Bits& bits, int start_at, int length);
 
 class Descrambler {
  public:

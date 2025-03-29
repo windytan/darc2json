@@ -28,8 +28,7 @@ namespace darc2json {
 // ({6, 4, 3, 0}) to bitstring ({1, 0, 1, 1, 0, 0, 1})
 Bits poly_coeffs_to_bits(const std::vector<int>& coeffs) {
   Bits bits(coeffs.at(0) + 1);
-  for (int c : coeffs)
-    bits.at(bits.size() - c - 1) = 1;
+  for (int c : coeffs) bits.at(bits.size() - c - 1) = 1;
 
   return bits;
 }
@@ -56,9 +55,8 @@ Bits bitvector_msb(std::vector<uint8_t> input) {
   return result;
 }
 
-uint32_t field(const Bits& bits,
-               int start_at, int length) {
-  assert (length <= 32);
+uint32_t field(const Bits& bits, int start_at, int length) {
+  assert(length <= 32);
   uint32_t result = 0;
   for (int i = 0; i < length; i++) {
     result += (bits.at(start_at + i) << i);
@@ -67,9 +65,8 @@ uint32_t field(const Bits& bits,
   return result;
 }
 
-uint32_t field_rev(const Bits& bits,
-                   int start_at, int length) {
-  assert (length <= 32);
+uint32_t field_rev(const Bits& bits, int start_at, int length) {
+  assert(length <= 32);
   uint32_t result = 0;
   for (int i = 0; i < length; i++) {
     result += (bits.at(start_at + i) << (length - 1 - i));
@@ -79,8 +76,7 @@ uint32_t field_rev(const Bits& bits,
 }
 
 void lshift(Bits& bits) {
-  for (size_t i = 0; i < bits.size() - 1; i++)
-    bits[i] = bits[i + 1];
+  for (size_t i = 0; i < bits.size() - 1; i++) bits[i] = bits[i + 1];
   bits[bits.size() - 1] = 0;
 }
 
@@ -95,8 +91,7 @@ Bits crc(const Bits& bits, const Bits& generator, size_t message_length) {
 
     // XOR if shifted-out bit was 1
     if (popped_bit) {
-      for (size_t j = 0; j < result.size(); j++)
-        result[j] ^= generator[j + 1];
+      for (size_t j = 0; j < result.size(); j++) result[j] ^= generator[j + 1];
     }
   }
 
@@ -134,13 +129,11 @@ bool BitsEqual(const Bits& bits1, const Bits& bits2) {
 
 std::string BitString(const Bits& bits) {
   std::string result;
-  for (int b : bits)
-    result += std::to_string(b);
+  for (int b : bits) result += std::to_string(b);
   return result;
 }
 
-const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
-                                                       const Bits& generator) {
+const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len, const Bits& generator) {
   std::map<Bits, Bits> result;
 
   for (size_t i = 0; i < len; i++) {
@@ -156,8 +149,7 @@ const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len,
 std::string BytesToHexString(const std::vector<uint8_t>& data) {
   std::stringstream ss;
   for (size_t n_byte = 0; n_byte < data.size(); n_byte++) {
-    ss << std::setfill('0') << std::setw(2) << std::hex <<
-       static_cast<int>(data[n_byte]);
+    ss << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(data[n_byte]);
 
     if (n_byte < data.size() - 1)
       ss << " ";
@@ -169,8 +161,7 @@ std::string BytesToHexString(const std::vector<uint8_t>& data) {
 std::string BitsToHexString(const Bits& data) {
   std::stringstream ss;
   for (size_t nbyte = 0; nbyte < data.size() / 8; nbyte++) {
-    ss << std::setfill('0') << std::setw(2) << std::hex <<
-      field(data, nbyte * 8, 8);
+    ss << std::setfill('0') << std::setw(2) << std::hex << field(data, nbyte * 8, 8);
 
     if (nbyte < data.size() / 8 - 1)
       ss << " ";
@@ -194,8 +185,7 @@ bool AllBitsZero(const Bits& bits) {
 Bits reversed_bytes_to_bit_vector(const std::vector<uint8_t>& bytes) {
   Bits bits;
   for (uint8_t byte : bytes)
-    for (int n_bit = 0; n_bit < 8; n_bit++)
-      bits.push_back((byte >> (7-n_bit)) & 1);
+    for (int n_bit = 0; n_bit < 8; n_bit++) bits.push_back((byte >> (7 - n_bit)) & 1);
 
   return bits;
 }
@@ -211,11 +201,11 @@ std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
 // Extract a field from a vector of bytes.
 // The bit numbering in a byte corresponds to that used in the DARC
 // specification.
-uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte,
-                size_t start_bit, size_t length) {
+uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte, size_t start_bit,
+                size_t length) {
   uint32_t result = 0;
-  int n_byte = start_byte;
-  int n_bit = start_bit;
+  int n_byte      = start_byte;
+  int n_bit       = start_bit;
   for (size_t n_bit_result = 0; n_bit_result < length; n_bit_result++) {
     result += ((bytes[n_byte] >> n_bit) & 1) << (length - n_bit_result - 1);
     n_bit--;

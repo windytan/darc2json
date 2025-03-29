@@ -31,9 +31,7 @@
 
 namespace darc2json {
 
-enum eSechDataType {
-  kTypeCOT = 0, kTypeAFT, kTypeSAFT, kTypeTDPNT, kTypeSNT, kTypeTDT, kTypeSCOT
-};
+enum eSechDataType { kTypeCOT = 0, kTypeAFT, kTypeSAFT, kTypeTDPNT, kTypeSNT, kTypeTDT, kTypeSCOT };
 
 class SechBlock {
  public:

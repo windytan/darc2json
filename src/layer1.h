@@ -17,8 +17,8 @@
 #ifndef LAYER1_H_
 #define LAYER1_H_
 
-#include <deque>
 #include <complex>
+#include <deque>
 #include <utility>
 #include <vector>
 
@@ -27,8 +27,6 @@
 #include "src/common.h"
 #include "src/input.h"
 #include "src/liquid_wrappers.h"
-
-#ifdef HAVE_LIQUID
 
 namespace darc2json {
 
@@ -44,7 +42,7 @@ class Subcarrier {
 
  private:
   void DemodulateMoreBits();
-  int  sample_num_;
+  int sample_num_;
   float resample_ratio_;
 
   std::deque<int> bit_buffer_;
@@ -67,5 +65,4 @@ class Subcarrier {
 
 }  // namespace darc2json
 
-#endif  // HAVE_LIQUID
 #endif  // LAYER1_H_
