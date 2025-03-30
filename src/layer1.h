@@ -19,8 +19,6 @@
 
 #include <complex>
 #include <deque>
-#include <utility>
-#include <vector>
 
 #include "config.h"
 
@@ -33,22 +31,20 @@ namespace darc2json {
 class Subcarrier {
  public:
   explicit Subcarrier(const Options& options);
-  ~Subcarrier();
+  ~Subcarrier() = default;
   int NextBit();
   bool eof() const;
-#ifdef DEBUG
-  float t() const;
-#endif
 
  private:
   void DemodulateMoreBits();
+  float nyquist() const;
+
   int sample_num_;
   float resample_ratio_;
 
   std::deque<int> bit_buffer_;
 
   liquid::FIRFilter fir_lpf_;
-  liquid::FIRFilter fir_lpf2_;
   liquid::AGC agc_;
   liquid::NCO oscillator_subcarrier_;
   liquid::NCO oscillator_dataclock_;

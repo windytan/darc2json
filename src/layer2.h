@@ -18,6 +18,8 @@
 #define LAYER2_H_
 
 #include <array>
+#include <cstddef>
+#include <cstdint>
 #include <vector>
 
 #include "config.h"
@@ -29,7 +31,7 @@ namespace darc2json {
 
 enum eBic { BIC1, BIC2, BIC3, BIC4 };
 
-uint32_t field(const Bits& bits, int start_at, int length);
+std::uint32_t field(const Bits& bits, int start_at, int length);
 
 class Descrambler {
  public:
@@ -37,14 +39,14 @@ class Descrambler {
   int Descramble(int bit);
 
  private:
-  std::array<int, 304> sequence_;
-  int bit_counter_;
+  std::array<int, 304> sequence_{};
+  int bit_counter_{};
 };
 
 class L2Block {
  public:
   L2Block(eBic _bic);
-  ~L2Block();
+  ~L2Block() = default;
   void PushBit(int bit);
   bool complete() const;
   int BicNum() const;
@@ -54,20 +56,20 @@ class L2Block {
  private:
   eBic bic_;
   Bits bits_;
-  size_t bit_counter_;
-  Descrambler descrambler_;
+  std::size_t bit_counter_{};
+  Descrambler descrambler_{};
 };
 
 class Layer2 {
  public:
   Layer2();
-  ~Layer2();
+  ~Layer2() = default;
   std::vector<L2Block> PushBit(int bit);
 
  private:
-  uint16_t bic_register_;
+  std::uint16_t bic_register_;
   L2Block block_;
-  bool in_sync_;
+  bool in_sync_{};
 };
 
 }  // namespace darc2json

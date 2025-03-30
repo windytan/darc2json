@@ -17,15 +17,14 @@
 #ifndef INPUT_H_
 #define INPUT_H_
 
+#include <array>
 #include <cstdint>
 #include <vector>
 
 #include "config.h"
 #include "src/common.h"
 
-#ifdef HAVE_SNDFILE
 #include <sndfile.h>
-#endif
 
 namespace darc2json {
 
@@ -42,17 +41,18 @@ class MPXReader {
 class StdinReader : public MPXReader {
  public:
   explicit StdinReader(const Options& options);
-  ~StdinReader();
+  ~StdinReader() = default;
   std::vector<float> ReadChunk() override;
   float samplerate() const override;
 
  private:
+  static constexpr int kInputBufferSize = 4096;
+
   float samplerate_;
-  int16_t* buffer_;
+  std::array<std::int16_t, kInputBufferSize> buffer_;
   bool feed_thru_;
 };
 
-#ifdef HAVE_SNDFILE
 class SndfileReader : public MPXReader {
  public:
   explicit SndfileReader(const Options& options);
@@ -61,16 +61,17 @@ class SndfileReader : public MPXReader {
   float samplerate() const override;
 
  private:
+  static constexpr int kInputBufferSize = 4096;
+
   SF_INFO info_;
   SNDFILE* file_;
-  float* buffer_;
+  std::array<float, kInputBufferSize> buffer_;
 };
-#endif
 
 class AsciiBitReader {
  public:
   explicit AsciiBitReader(const Options& options);
-  ~AsciiBitReader();
+  ~AsciiBitReader() = default;
   int NextBit();
   bool eof() const;
 

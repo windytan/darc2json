@@ -16,38 +16,29 @@
  */
 #include "src/input.h"
 
+#include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 namespace darc2json {
-
-namespace {
-
-const int kInputBufferSize = 4096;
-
-}
 
 bool MPXReader::eof() const {
   return is_eof_;
 }
 
 StdinReader::StdinReader(const Options& options)
-    : samplerate_(options.samplerate),
-      buffer_(new(std::nothrow) int16_t[kInputBufferSize]),
-      feed_thru_(options.feed_thru) {
+    : samplerate_(options.samplerate), feed_thru_(options.feed_thru) {
   is_eof_ = false;
 }
 
-StdinReader::~StdinReader() {
-  delete[] buffer_;
-}
-
 std::vector<float> StdinReader::ReadChunk() {
-  int num_read = fread(buffer_, sizeof(buffer_[0]), kInputBufferSize, stdin);
+  const int num_read = std::fread(buffer_.data(), sizeof(buffer_[0]), kInputBufferSize, stdin);
 
   if (feed_thru_)
-    fwrite(buffer_, sizeof(buffer_[0]), num_read, stdout);
+    std::fwrite(buffer_.data(), sizeof(buffer_[0]), num_read, stdout);
 
   if (num_read < kInputBufferSize)
     is_eof_ = true;
@@ -62,25 +53,19 @@ float StdinReader::samplerate() const {
   return samplerate_;
 }
 
-#ifdef HAVE_SNDFILE
 SndfileReader::SndfileReader(const Options& options)
-    : info_({0, 0, 0, 0, 0, 0}),
-      file_(sf_open(options.sndfilename.c_str(), SFM_READ, &info_)),
-      buffer_(new(std::nothrow) float[info_.channels * kInputBufferSize]) {
+    : info_({0, 0, 0, 0, 0, 0}), file_(::sf_open(options.sndfilename.c_str(), SFM_READ, &info_)) {
   is_eof_ = false;
   if (info_.frames == 0) {
-    std::cerr << "error: couldn't open " << options.sndfilename << '\n';
-    is_eof_ = true;
-  }
-  if (info_.samplerate < 128000.f) {
-    std::cerr << "error: sample rate must be 128000 Hz or higher" << '\n';
-    is_eof_ = true;
+    throw std::runtime_error("error: can't open input file");
+  } else if (info_.samplerate < 128'000.f) {
+    ::sf_close(file_);
+    throw std::runtime_error("error: sample rate must be 128000 Hz or higher");
   }
 }
 
 SndfileReader::~SndfileReader() {
-  sf_close(file_);
-  delete[] buffer_;
+  ::sf_close(file_);
 }
 
 std::vector<float> SndfileReader::ReadChunk() {
@@ -88,15 +73,17 @@ std::vector<float> SndfileReader::ReadChunk() {
   if (is_eof_)
     return chunk;
 
-  sf_count_t num_read = sf_readf_float(file_, buffer_, kInputBufferSize);
-  if (num_read != kInputBufferSize)
+  const auto frames_to_read = kInputBufferSize / info_.channels;
+
+  const sf_count_t num_read = sf_readf_float(file_, buffer_.data(), frames_to_read);
+  if (num_read != frames_to_read)
     is_eof_ = true;
 
   if (info_.channels == 1) {
-    chunk = std::vector<float>(buffer_, buffer_ + num_read);
+    chunk = std::vector<float>(buffer_.data(), buffer_.data() + num_read);
   } else {
     chunk = std::vector<float>(num_read);
-    for (size_t i = 0; i < chunk.size(); i++) chunk[i] = buffer_[i * info_.channels];
+    for (std::size_t i = 0; i < chunk.size(); i++) chunk[i] = buffer_[i * info_.channels];
   }
   return chunk;
 }
@@ -104,19 +91,16 @@ std::vector<float> SndfileReader::ReadChunk() {
 float SndfileReader::samplerate() const {
   return info_.samplerate;
 }
-#endif
 
 AsciiBitReader::AsciiBitReader(const Options& options)
     : is_eof_(false), feed_thru_(options.feed_thru) {}
 
-AsciiBitReader::~AsciiBitReader() {}
-
 int AsciiBitReader::NextBit() {
   int chr = 0;
   while (chr != '0' && chr != '1' && chr != EOF) {
-    chr = getchar();
+    chr = std::getchar();
     if (feed_thru_)
-      putchar(chr);
+      std::putchar(chr);
   }
 
   if (chr == EOF) {

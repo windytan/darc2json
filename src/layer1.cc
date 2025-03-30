@@ -16,16 +16,16 @@
  */
 #include "src/layer1.h"
 
+#include <array>
 #include <cmath>
 #include <complex>
+#include <cstddef>
 #include <cstdio>
 #include <deque>
 #include <iostream>
-#include <tuple>
+#include <vector>
 
-#ifdef HAVE_SNDFILE
 #include <sndfile.h>
-#endif
 
 #include "src/common.h"
 #include "src/input.h"
@@ -35,24 +35,17 @@ namespace darc2json {
 
 namespace {
 
-const float kCarrierFrequency_Hz = 76000.0f;
-const float kBitsPerSecond       = 16000.0f;
-const int kSamplesPerSymbol      = 8;
-const float kAGCBandwidth_Hz     = 500.0f;
-const float kAGCInitialGain      = 0.0077f;
-const float kLowpassCutoff_Hz    = 11000.0f;
-const float kPLLBandwidth_Hz     = 0.01f;
-const float kPLLMultiplier       = 12.0f;
+constexpr float kCarrierFrequency_Hz = 76'000.0f;
+constexpr float kBitsPerSecond       = 16'000.0f;
+constexpr int kSamplesPerSymbol      = 8;
+constexpr float kAGCBandwidth_Hz     = 500.0f;
+constexpr float kAGCInitialGain      = 0.0077f;
+constexpr float kLowpassCutoff_Hz    = 11'000.0f;
+constexpr float kPLLBandwidth_Hz     = 0.01f;
 
-float hertz2step(float Hz) {
+constexpr float hertz2step(float Hz) {
   return Hz * 2.0f * M_PI / kTargetSampleRate_Hz;
 }
-
-#ifdef DEBUG
-float step2hertz(float step) {
-  return step * kTargetSampleRate_Hz / (2.0f * M_PI);
-}
-#endif
 
 }  // namespace
 
@@ -60,8 +53,7 @@ Subcarrier::Subcarrier(const Options& options)
     : sample_num_(0),
       resample_ratio_(kTargetSampleRate_Hz / options.samplerate),
       bit_buffer_(),
-      fir_lpf_(256, kLowpassCutoff_Hz / kTargetSampleRate_Hz),
-      fir_lpf2_(256, 16000 / (kTargetSampleRate_Hz / 2)),
+      fir_lpf_(64, kLowpassCutoff_Hz / kTargetSampleRate_Hz),
       agc_(kAGCBandwidth_Hz / kTargetSampleRate_Hz, kAGCInitialGain),
       oscillator_subcarrier_(LIQUID_VCO, hertz2step(kCarrierFrequency_Hz)),
       oscillator_dataclock_(LIQUID_VCO, hertz2step(kBitsPerSecond / 2)),
@@ -69,27 +61,36 @@ Subcarrier::Subcarrier(const Options& options)
       freqdem_(0.5f),
       is_eof_(false),
       accumulator_(0.f) {
-  oscillator_dataclock_.set_pll_bandwidth(kPLLBandwidth_Hz / kTargetSampleRate_Hz);
+  oscillator_dataclock_.setPLLBandwidth(kPLLBandwidth_Hz / kTargetSampleRate_Hz);
 
-#ifdef HAVE_SNDFILE
-  if (options.input_type == INPUT_MPX_SNDFILE)
+  if (options.input_type == InputType::MpxSndfile) {
     mpx_ = new SndfileReader(options);
-  else
-#endif
+  } else {
     mpx_ = new StdinReader(options);
+  }
 
   resample_ratio_ = kTargetSampleRate_Hz / mpx_->samplerate();
+
+  if (resample_ratio_ >= 4.f || resample_ratio_ <= 0.004f) {
+    throw std::runtime_error("error: sample rate is out of range");
+  }
+
   resampler_.set_rate(resample_ratio_);
+
+  // TODO: The PLL is not used.
+  oscillator_subcarrier_.setPLLBandwidth(kBitsPerSecond * 0.1f / nyquist() * 2.f * 0.01f * 0.2f);
 }
 
-Subcarrier::~Subcarrier() {}
+float Subcarrier::nyquist() const {
+  return kTargetSampleRate_Hz * .5f;
+}
 
 void Subcarrier::DemodulateMoreBits() {
   is_eof_ = mpx_->eof();
   if (is_eof_)
     return;
 
-  std::vector<float> inbuffer = mpx_->ReadChunk();
+  const std::vector<float> inbuffer = mpx_->ReadChunk();
 
   int num_samples = 0;
 
@@ -97,13 +98,13 @@ void Subcarrier::DemodulateMoreBits() {
       resample_ratio_ <= 1.0f ? inbuffer.size() : inbuffer.size() * resample_ratio_);
 
   if (resample_ratio_ == 1.0f) {
-    for (size_t i = 0; i < inbuffer.size(); i++) complex_samples[i] = inbuffer[i];
+    for (std::size_t i = 0; i < inbuffer.size(); i++) complex_samples[i] = inbuffer[i];
     num_samples = inbuffer.size();
   } else {
     int i_resampled = 0;
-    for (size_t i = 0; i < inbuffer.size(); i++) {
-      std::complex<float> buf[4];
-      int num_resampled = resampler_.execute(inbuffer[i], buf);
+    for (std::size_t i = 0; i < inbuffer.size(); i++) {
+      std::array<std::complex<float>, 4> buf;
+      int num_resampled = resampler_.execute(inbuffer[i], buf.data());
 
       for (int j = 0; j < num_resampled; j++) {
         complex_samples[i_resampled] = buf[j];
@@ -113,21 +114,20 @@ void Subcarrier::DemodulateMoreBits() {
     num_samples = i_resampled;
   }
 
-  const int decimate_ratio = kTargetSampleRate_Hz / kBitsPerSecond / kSamplesPerSymbol;
+  constexpr int kDecimateRatio = kTargetSampleRate_Hz / kBitsPerSecond / kSamplesPerSymbol;
 
   for (int i = 0; i < num_samples; i++) {
-    std::complex<float> sample = complex_samples[i];
-
-    std::complex<float> sample_baseband = oscillator_subcarrier_.MixDown(sample);
+    const std::complex<float> sample          = complex_samples[i];
+    const std::complex<float> sample_baseband = oscillator_subcarrier_.MixDown(sample);
 
     fir_lpf_.push(sample_baseband);
 
-    if (sample_num_ % decimate_ratio == 0) {
-      std::complex<float> sample_lopass = agc_.execute(fir_lpf_.execute());
+    if (sample_num_ % kDecimateRatio == 0) {
+      const std::complex<float> sample_lopass = agc_.execute(fir_lpf_.execute());
 
-      float fmdem = freqdem_.Demodulate(sample_lopass);
+      const float fmdem = freqdem_.Demodulate(sample_lopass);
 
-      accumulator_ += fmdem * fabs(oscillator_dataclock_.cos());
+      accumulator_ += fmdem * std::fabs(oscillator_dataclock_.cos());
       if (oscillator_dataclock_.DidCrossZero()) {
         bit_buffer_.push_back(accumulator_ > 0.f);
         accumulator_ = 0.f;
@@ -157,11 +157,5 @@ int Subcarrier::NextBit() {
 bool Subcarrier::eof() const {
   return is_eof_;
 }
-
-#ifdef DEBUG
-float Subcarrier::t() const {
-  return sample_num_ / kTargetSampleRate_Hz;
-}
-#endif
 
 }  // namespace darc2json

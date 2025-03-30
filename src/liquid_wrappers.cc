@@ -21,7 +21,14 @@
 #include <cassert>
 #include <complex>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// https://github.com/jgaeddert/liquid-dsp/issues/229
+#pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
+extern "C" {
 #include "liquid/liquid.h"
+}
+#pragma clang diagnostic pop
 
 namespace liquid {
 
@@ -93,15 +100,15 @@ void NCO::MixBlockDown(std::complex<float>* x, std::complex<float>* y, int n) {
 }
 
 void NCO::Step() {
-  float prev_value = nco_crcf_cos(object_);
+  const float prev_value = nco_crcf_cos(object_);
   nco_crcf_step(object_);
-  float current_value = nco_crcf_cos(object_);
+  const float current_value = nco_crcf_cos(object_);
 
   if ((prev_value <= 0.f && current_value > 0.f) || (prev_value > 0.f && current_value <= 0.f))
     did_cross_zero_ = true;
 }
 
-void NCO::set_pll_bandwidth(float bw) {
+void NCO::setPLLBandwidth(float bw) {
   nco_crcf_pll_set_bandwidth(object_, bw);
 }
 
@@ -114,7 +121,7 @@ float NCO::frequency() {
 }
 
 bool NCO::DidCrossZero() {
-  bool temp       = did_cross_zero_;
+  const bool temp = did_cross_zero_;
   did_cross_zero_ = false;
   return temp;
 }
@@ -151,7 +158,9 @@ std::vector<std::complex<float>> SymSync::execute(std::complex<float>* in) {
 
 FSKdem::FSKdem(unsigned k, float bw) : object_(fskdem_create(1, k, bw)) {}
 
-FSKdem::~FSKdem() {}
+FSKdem::~FSKdem() {
+  fskdem_destroy(object_);
+}
 
 Freqdem::Freqdem(float factor) : object_(freqdem_create(factor)) {}
 

@@ -19,6 +19,7 @@
 
 #include <array>
 #include <chrono>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
@@ -57,7 +58,7 @@ class SechBlock {
 
 class ServiceMessage {
  public:
-  ServiceMessage();
+  ServiceMessage() = default;
   void push_block(const SechBlock& block);
   bool is_complete() const;
   Json::Value to_json() const;
@@ -84,7 +85,7 @@ class LongBlock {
   bool is_last_fragment_;
   int sequence_counter_;
   bool l3_header_crc_ok_;
-  std::vector<uint8_t> bytes_;
+  std::vector<std::uint8_t> bytes_;
 };
 
 class LongMessage {
@@ -121,7 +122,7 @@ class Layer3 {
   std::unique_ptr<Json::StreamWriter> writer_;
 };
 
-std::string CountryString(uint16_t cid, uint16_t ecc);
+std::string CountryString(std::uint16_t cid, std::uint16_t ecc);
 
 }  // namespace darc2json
 

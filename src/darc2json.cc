@@ -16,8 +16,12 @@
  *
  */
 #include <getopt.h>
+#include <cstdlib>
 #include <iostream>
+#include <string>
+#include <vector>
 
+#include "config.h"
 #include "src/common.h"
 #include "src/layer1.h"
 #include "src/layer2.h"
@@ -54,44 +58,39 @@ void PrintUsage() {
 }
 
 void PrintVersion() {
-  std::cout << "darc2json 0.0.1-SNAPSHOT by OH2EIQ" << '\n';
+  std::cout << "darc2json " << VERSION << " by OH2EIQ" << '\n';
 }
 
 Options GetOptions(int argc, char** argv) {
   darc2json::Options options;
 
   static struct option long_options[] = {
-      {"feed-through", no_argument, 0, 'e'},
-      {"bler",         no_argument, 0, 'E'},
-      {"file",         1,           0, 'f'},
-      {"samplerate",   1,           0, 'r'},
-      {"timestamp",    1,           0, 't'},
-      {"version",      no_argument, 0, 'v'},
-      {"help",         no_argument, 0, '?'},
-      {0,              0,           0, 0  }
+      {"feed-through", no_argument,       0, 'e'},
+      {"bler",         no_argument,       0, 'E'},
+      {"file",         required_argument, 0, 'f'},
+      {"samplerate",   required_argument, 0, 'r'},
+      {"timestamp",    required_argument, 0, 't'},
+      {"version",      no_argument,       0, 'v'},
+      {"help",         no_argument,       0, '?'},
+      {0,              0,                 0, 0  }
   };
 
   int option_index = 0;
   int option_char;
 
-  while ((option_char = getopt_long(argc, argv, "eEf:r:t:v", long_options, &option_index)) >= 0) {
+  while ((option_char = ::getopt_long(argc, argv, "eEf:r:t:v", long_options, &option_index)) >= 0) {
     switch (option_char) {
       case 'e': options.feed_thru = true; break;
       case 'E': options.bler = true; break;
       case 'f':
-#ifdef HAVE_SNDFILE
         options.sndfilename = std::string(optarg);
-        options.input_type  = darc2json::INPUT_MPX_SNDFILE;
-#else
-        std::cerr << "error: darc2json was compiled without libsndfile" << '\n';
-        options.just_exit = true;
-#endif
+        options.input_type  = darc2json::InputType::MpxSndfile;
         break;
       case 'p': options.show_partial = true; break;
       case 'r':
         options.samplerate = std::atoi(optarg);
-        if (options.samplerate < 180000.f) {
-          std::cerr << "error: sample rate must be 180000 Hz or higher" << '\n';
+        if (options.samplerate < 180'000.f) {
+          std::cerr << "error: sample rate must be 180 kHz or higher" << '\n';
           options.just_exit = true;
         }
         break;
@@ -113,7 +112,7 @@ Options GetOptions(int argc, char** argv) {
       break;
   }
 
-  if (options.feed_thru && options.input_type == INPUT_MPX_SNDFILE) {
+  if (options.feed_thru && options.input_type == InputType::MpxStdin) {
     std::cerr << "error: feed-thru is not supported for audio file inputs" << '\n';
     options.just_exit = true;
   }
@@ -134,8 +133,8 @@ int main(int argc, char** argv) {
 
   darc2json::Subcarrier subc(options);
   while (!subc.eof()) {
-    std::vector<darc2json::L2Block> blocks = layer2.PushBit(subc.NextBit());
-    for (darc2json::L2Block l2block : blocks) {
+    const auto blocks = layer2.PushBit(subc.NextBit());
+    for (const darc2json::L2Block& l2block : blocks) {
       layer3.push_block(l2block);
     }
   }

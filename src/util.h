@@ -17,40 +17,42 @@
 #ifndef UTIL_H_
 #define UTIL_H_
 
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
 #include <map>
 #include <string>
 #include <vector>
 
 namespace darc2json {
 
-using Bits  = std::vector<uint8_t>;
-using Bytes = std::vector<uint8_t>;
+using Bits  = std::vector<std::uint8_t>;
+using Bytes = std::vector<std::uint8_t>;
 
-Bits poly_coeffs_to_bits(const std::vector<int>& coeffs);
-Bits bitvector_lsb(std::vector<uint8_t> input);
-Bits bitvector_msb(std::vector<uint8_t> input);
-uint32_t field(const Bits& bits, int start_at, int length);
-uint32_t field_rev(const Bits& bits, int start_at, int length);
+Bits poly_coeffs_to_bits(const std::initializer_list<int>& coeffs);
+Bits bitvector_lsb(const std::vector<std::uint8_t>& input);
+Bits bitvector_msb(const std::vector<std::uint8_t>& input);
+std::uint32_t field(const Bits& bits, int start_at, int length);
+std::uint32_t field_rev(const Bits& bits, int start_at, int length);
 void lshift(Bits& bits);
 // Bits crc(Bits bits, const Bits& generator);
 bool BitsEqual(const Bits& bits1, const Bits& bits2);
 std::string BitString(const Bits& bits);
-Bits crc(const Bits& bits, const Bits& generator, size_t message_length);
+Bits crc(const Bits& bits, const Bits& generator, std::size_t message_length);
 
-bool check_crc(const Bits& bits, const Bits& generator, size_t message_length);
+bool check_crc(const Bits& bits, const Bits& generator, std::size_t message_length);
 
-const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len, const Bits& generator);
+const std::map<Bits, Bits> create_bitflip_syndrome_map(std::size_t len, const Bits& generator);
 std::string BitsToHexString(const Bits& data);
-std::string BytesToHexString(const std::vector<uint8_t>& data);
+std::string BytesToHexString(const std::vector<std::uint8_t>& data);
 
 bool AllBitsZero(const Bits& bits);
 
-Bits reversed_bytes_to_bit_vector(const std::vector<uint8_t>& bytes);
-std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits);
+Bits reversed_bytes_to_bit_vector(const std::vector<std::uint8_t>& bytes);
+std::vector<std::uint8_t> bit_vector_to_reversed_bytes(const Bits& bits);
 
-uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte, size_t start_bit,
-                size_t length);
+std::uint32_t bfield(const std::vector<std::uint8_t>& bytes, std::size_t start_byte,
+                     std::size_t start_bit, std::size_t length);
 
 }  // namespace darc2json
 #endif  // UTIL_H_

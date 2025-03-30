@@ -21,31 +21,22 @@
 
 namespace darc2json {
 
-const float kTargetSampleRate_Hz = 228000.0f;
-const int kNumBlerAverageGroups  = 12;
+constexpr float kTargetSampleRate_Hz = 228'000.0f;
+constexpr int kNumBlerAverageGroups  = 12;
 
-enum eInputType { INPUT_MPX_STDIN, INPUT_MPX_SNDFILE, INPUT_ASCIIBITS, INPUT_HEX };
+enum class InputType { MpxStdin, MpxSndfile, AsciiBits, Hex };
 
-enum eOutputType { OUTPUT_HEX, OUTPUT_JSON };
+enum class OutputType { Hex, Json };
 
 struct Options {
-  Options()
-      : feed_thru(false),
-        show_partial(false),
-        just_exit(false),
-        timestamp(false),
-        bler(false),
-        samplerate(kTargetSampleRate_Hz),
-        input_type(INPUT_MPX_STDIN),
-        output_type(OUTPUT_JSON) {}
-  bool feed_thru;
-  bool show_partial;
-  bool just_exit;
-  bool timestamp;
-  bool bler;
-  float samplerate;
-  eInputType input_type;
-  eOutputType output_type;
+  bool feed_thru{};
+  bool show_partial{};
+  bool just_exit{};
+  bool timestamp{};
+  bool bler{};
+  float samplerate{kTargetSampleRate_Hz};
+  InputType input_type{InputType::MpxStdin};
+  OutputType output_type{OutputType::Json};
   std::string sndfilename;
   std::string time_format;
 };

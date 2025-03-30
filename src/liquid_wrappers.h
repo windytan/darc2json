@@ -22,7 +22,14 @@
 #include <complex>
 #include <vector>
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+// https://github.com/jgaeddert/liquid-dsp/issues/229
+#pragma clang diagnostic ignored "-Wreturn-type-c-linkage"
+extern "C" {
 #include "liquid/liquid.h"
+}
+#pragma clang diagnostic pop
 
 namespace liquid {
 
@@ -57,7 +64,7 @@ class NCO {
   void MixBlockDown(std::complex<float>* x, std::complex<float>* y, int n);
   bool DidCrossZero();
   void Step();
-  void set_pll_bandwidth(float);
+  void setPLLBandwidth(float);
   void StepPLL(float dphi);
   float frequency();
   float cos();

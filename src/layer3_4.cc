@@ -18,6 +18,8 @@
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
+#include <cstdio>
 #include <iomanip>
 #include <iostream>
 
@@ -92,8 +94,6 @@ Bits SechBlock::data_bits() const {
   return data_;
 }
 
-ServiceMessage::ServiceMessage() {}
-
 void ServiceMessage::push_block(const SechBlock& block) {
   if (block.block_num() == 0) {
     blocks_.clear();
@@ -143,11 +143,11 @@ Json::Value ServiceMessage::to_json() const {
   if (!is_complete())
     return json;
 
-  std::vector<std::string> sech_types({"COT", "AFT", "SAFT", "TDPNT", "SNT", "TDT", "SCOT"});
+  const std::vector<std::string> sech_types({"COT", "AFT", "SAFT", "TDPNT", "SNT", "TDT", "SCOT"});
 
-  Bits data = data_bits();
+  const Bits data = data_bits();
 
-  std::vector<uint8_t> data_bytes = bit_vector_to_reversed_bytes(data);
+  const std::vector<std::uint8_t> data_bytes = bit_vector_to_reversed_bytes(data);
 
   json["country_code"] = country_id();
   json["network_id"]   = network_id();
@@ -155,26 +155,26 @@ Json::Value ServiceMessage::to_json() const {
   json["service_message"]["type"] =
       (data_type() < static_cast<int>(sech_types.size()) ? sech_types.at(data_type()) : "err");
 
-  int ecc                           = field(data, 0, 8);
-  int tseid                         = field(data, 8, 7);
+  const int ecc                     = field(data, 0, 8);
+  const int tseid                   = field(data, 8, 7);
   // int message_len = field(data, 15, 9);
   json["service_message"]["tse_id"] = tseid;
 
   json["service_message"]["country"] = CountryString(country_id(), ecc);
 
   if (data_type() == kTypeTDT) {
-    Bits time_bits(data.begin() + 3 * 8, data.begin() + 7 * 8 + 1);
-    Bits date_bits(data.begin() + 7 * 8, data.begin() + 10 * 8 + 1);
+    const Bits time_bits(data.begin() + 3 * 8, data.begin() + 7 * 8 + 1);
+    const Bits date_bits(data.begin() + 7 * 8, data.begin() + 10 * 8 + 1);
 
     int modified_julian_date = bfield(data_bytes, 7, 6, 17);
 
-    double local_offset =
+    const double local_offset =
         (bfield(data_bytes, 5, 5, 1) ? -1 : 1) * bfield(data_bytes, 5, 4, 5) / 2.0;
     modified_julian_date += local_offset / 24.0;
 
     int year  = (modified_julian_date - 15078.2) / 365.25;
     int month = (modified_julian_date - 14956.1 - std::trunc(year * 365.25)) / 30.6001;
-    int day =
+    const int day =
         modified_julian_date - 14956 - std::trunc(year * 365.25) - std::trunc(month * 30.6001);
     if (month == 14 || month == 15) {
       year += 1;
@@ -183,28 +183,28 @@ Json::Value ServiceMessage::to_json() const {
     year += 1900;
     month -= 1;
 
-    int local_offset_min = (local_offset - std::trunc(local_offset)) * 60;
+    const int local_offset_min = (local_offset - std::trunc(local_offset)) * 60;
 
-    bool eta    = bfield(data_bytes, 3, 7, 1);
-    uint8_t taf = data_bytes[6];
-    int hour    = bfield(data_bytes, 3, 6, 5);
-    int minute  = bfield(data_bytes, 3, 1, 6);
-    int seconds = bfield(data_bytes, 4, 3, 6);
+    const bool eta    = bfield(data_bytes, 3, 7, 1);
+    // const std::uint8_t taf = data_bytes[6];
+    const int hour    = bfield(data_bytes, 3, 6, 5);
+    const int minute  = bfield(data_bytes, 3, 1, 6);
+    const int seconds = bfield(data_bytes, 4, 3, 6);
 
-    bool is_date_valid =
+    const bool is_date_valid =
         (month >= 1 && month <= 12 && day >= 1 && day <= 31 && hour >= 0 && hour <= 23 &&
          minute >= 0 && minute <= 59 && fabs(std::trunc(local_offset)) <= 14.0);
     if (is_date_valid) {
       char buffer[100];
-      int local_offset_hour = fabs(std::trunc(local_offset));
+      const int local_offset_hour = fabs(std::trunc(local_offset));
 
       if (local_offset_hour == 0 && local_offset_min == 0) {
-        snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02dZ", year, month, day, hour,
-                 minute, seconds);
+        std::snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02dZ", year, month, day,
+                      hour, minute, seconds);
       } else {
-        snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02d%s%02d:%02d", year, month,
-                 day, hour, minute, seconds, local_offset > 0 ? "+" : "-", local_offset_hour,
-                 abs(local_offset_min));
+        std::snprintf(buffer, sizeof(buffer), "%04d-%02d-%02dT%02d:%02d:%02d%s%02d:%02d", year,
+                      month, day, hour, minute, seconds, local_offset > 0 ? "+" : "-",
+                      local_offset_hour, abs(local_offset_min));
       }
       json["service_message"]["clock_time"] = std::string(buffer);
     }
@@ -270,7 +270,7 @@ void LongMessage::push_block(const LongBlock& block) {
 
   if (block.header_crc_ok()) {
     blocks_.push_back(block);
-    for (uint8_t byte : block.data()) bytes_.push_back(byte);
+    for (const std::uint8_t byte : block.data()) bytes_.push_back(byte);
 
     if (block.is_last_fragment())
       parse_l4_header();
@@ -285,10 +285,10 @@ void LongMessage::parse_l4_header() {
 
   Bits header_bits = reversed_bytes_to_bit_vector(bytes_);
 
-  int ci   = field(header_bits, 2, 2);
-  int fl   = field(header_bits, 4, 2);
-  bool ext = field(header_bits, 6, 1);
-  bool caf = field(header_bits, 17, 1);
+  // const int ci   = field(header_bits, 2, 2);
+  const int fl   = field(header_bits, 4, 2);
+  const bool ext = field(header_bits, 6, 1);
+  const bool caf = field(header_bits, 17, 1);
   // size_t dlen = field(header_bits, 18 + ext * 8, 8);
 
   is_first_ = fl & 1;
@@ -299,8 +299,8 @@ void LongMessage::parse_l4_header() {
 
   header_bits.resize((4 + ext) * 8);
 
-  bool crc_ok   = check_crc(header_bits, kL4LongMessageHeaderCRC, header_bits.size());
-  bool complete = true;  //(bytes_.size() >= dlen);
+  const bool crc_ok   = check_crc(header_bits, kL4LongMessageHeaderCRC, header_bits.size());
+  const bool complete = true;  //(bytes_.size() >= dlen);
 
   /*printf("L4: CI:%d ext:[%s] caf:[%s] dlen:%3ld "
          "(rx: %3ld) L4_CRC_OK[%s]",
@@ -337,22 +337,22 @@ Json::Value LongMessage::to_json() const {
   json["long_message"]["last"]  = is_last_;
 
   if (is_first_ && is_last_) {
-    bool has_crc                    = (bytes_[0] >> 6) & 1;
-    int type                        = (bytes_[0]) & 0xf;
+    const bool has_crc              = (bytes_[0] >> 6) & 1;
+    const int type                  = (bytes_[0]) & 0xf;
     json["long_message"]["has_crc"] = has_crc;
     json["long_message"]["type"]    = type;
     // printf("lm:%s\n",BytesToHexString(bytes_).c_str());
     if (type == 12) {
-      int transport_id                     = bfield(bytes_, 3, 0, 16);
-      int len                              = bfield(bytes_, 2, 7, 4);  // ibytes_[2] & 0xf;
+      const int transport_id               = bfield(bytes_, 3, 0, 16);
+      const int len                        = bfield(bytes_, 2, 7, 4);  // ibytes_[2] & 0xf;
       json["long_message"]["transport_id"] = transport_id;
       json["long_message"]["hlen"]         = len;
 
-      size_t nbyte = 5;
+      std::size_t nbyte = 5;
       while (nbyte < bytes_.size() - 1) {
-        uint8_t tag = bytes_[nbyte];
+        // std::uint8_t tag = bytes_[nbyte];
         nbyte++;
-        uint8_t len = bytes_[nbyte];
+        const std::uint8_t len = bytes_[nbyte];
         nbyte++;
         if (len > 0) {
           std::vector<uint8_t> tlv_bytes;
@@ -383,9 +383,9 @@ Layer3::Layer3(const Options& options) : options_(options), writer_builder_() {
 Layer3::~Layer3() {}
 
 void Layer3::push_block(const L2Block& l2block) {
-  Bits info_bits = l2block.information_bits();
+  const Bits info_bits = l2block.information_bits();
 
-  uint16_t silch = field(info_bits, 0, 4);
+  const std::uint16_t silch = field(info_bits, 0, 4);
 
   if (silch == 0x8) {
     service_message_.push_block(SechBlock(info_bits));
@@ -410,8 +410,7 @@ void Layer3::push_block(const L2Block& l2block) {
     // bool is_realtime = field(info_bits, 4, 1);
     int subchannel = field(info_bits, 5, 3);
     if (subchannel == 0x0) {
-      Bits data;
-      data = Bits(info_bits.begin() + 8, info_bits.end());
+      const Bits data(info_bits.begin() + 8, info_bits.end());
       Json::Value json;
 
       json["block_app"]["l3data"] = BitsToHexString(data);
@@ -433,8 +432,8 @@ void Layer3::print_line(Json::Value json) {
 
 // EN 50067:1998, Annex D, Table D.1 (p. 71)
 // RDS Forum R08/008_7, Table D.2 (p. 75)
-std::string CountryString(uint16_t cid, uint16_t ecc) {
-  static const std::map<uint16_t, std::vector<std::string>> country_codes({
+std::string CountryString(std::uint16_t cid, std::uint16_t ecc) {
+  static const std::map<std::uint16_t, std::vector<std::string>> country_codes({
       {0xA0,
        {"us", "us", "us", "us", "us", "us", "us", "us", "us", "us", "us", "--", "us", "us", "--"}},
       {0xA1,

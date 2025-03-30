@@ -17,6 +17,9 @@
 #include "src/util.h"
 
 #include <cassert>
+#include <cstddef>
+#include <cstdint>
+#include <initializer_list>
 #include <iomanip>
 #include <map>
 #include <sstream>
@@ -26,17 +29,18 @@ namespace darc2json {
 
 // Convert generator polynomial (x^6 + x^4 + x^3 + 1) coefficients
 // ({6, 4, 3, 0}) to bitstring ({1, 0, 1, 1, 0, 0, 1})
-Bits poly_coeffs_to_bits(const std::vector<int>& coeffs) {
-  Bits bits(coeffs.at(0) + 1);
-  for (int c : coeffs) bits.at(bits.size() - c - 1) = 1;
+Bits poly_coeffs_to_bits(const std::initializer_list<int>& coeffs) {
+  assert(!std::empty(coeffs));
+  Bits bits(*coeffs.begin() + 1);
+  for (const int c : coeffs) bits.at(bits.size() - c - 1) = 1;
 
   return bits;
 }
 
-Bits bitvector_lsb(std::vector<uint8_t> input) {
+Bits bitvector_lsb(const std::vector<uint8_t>& input) {
   Bits result;
 
-  for (uint8_t c : input) {
+  for (const std::uint8_t c : input) {
     for (int i = 7; i >= 0; i--) {
       result.push_back((c >> i) & 1);
     }
@@ -44,10 +48,10 @@ Bits bitvector_lsb(std::vector<uint8_t> input) {
   return result;
 }
 
-Bits bitvector_msb(std::vector<uint8_t> input) {
+Bits bitvector_msb(const std::vector<std::uint8_t>& input) {
   Bits result;
 
-  for (uint8_t c : input) {
+  for (const std::uint8_t c : input) {
     for (int i = 0; i < 8; i++) {
       result.push_back((c >> i) & 1);
     }
@@ -55,9 +59,14 @@ Bits bitvector_msb(std::vector<uint8_t> input) {
   return result;
 }
 
-uint32_t field(const Bits& bits, int start_at, int length) {
+// \return Value of a bit field
+// \param start_at First bit, counting from LSB = 0
+// \param length Number of bits in the field
+std::uint32_t field(const Bits& bits, int start_at, int length) {
   assert(length <= 32);
-  uint32_t result = 0;
+  assert(start_at + length <= static_cast<int>(bits.size()));
+  assert(start_at >= 0);
+  std::uint32_t result = 0;
   for (int i = 0; i < length; i++) {
     result += (bits.at(start_at + i) << i);
   }
@@ -65,9 +74,11 @@ uint32_t field(const Bits& bits, int start_at, int length) {
   return result;
 }
 
-uint32_t field_rev(const Bits& bits, int start_at, int length) {
+std::uint32_t field_rev(const Bits& bits, int start_at, int length) {
   assert(length <= 32);
-  uint32_t result = 0;
+  assert(start_at + length <= static_cast<int>(bits.size()));
+  assert(start_at >= 0);
+  std::uint32_t result = 0;
   for (int i = 0; i < length; i++) {
     result += (bits.at(start_at + i) << (length - 1 - i));
   }
@@ -75,23 +86,28 @@ uint32_t field_rev(const Bits& bits, int start_at, int length) {
   return result;
 }
 
+// Shift bits to the left by one position
 void lshift(Bits& bits) {
-  for (size_t i = 0; i < bits.size() - 1; i++) bits[i] = bits[i + 1];
+  assert(!std::empty(bits));
+  for (int i = 0; i < static_cast<int>(bits.size()) - 1; i++) bits[i] = bits[i + 1];
   bits[bits.size() - 1] = 0;
 }
 
-Bits crc(const Bits& bits, const Bits& generator, size_t message_length) {
+Bits crc(const Bits& bits, const Bits& generator, std::size_t message_length) {
   assert(message_length <= bits.size());
+  assert(generator.size() > 1);
   Bits result(generator.size() - 1);
 
-  for (size_t n_bit = 0; n_bit < message_length; n_bit++) {
-    int popped_bit = result[0];
+  assert(!std::empty(result));
+  assert(generator.size() > result.size());
+  for (std::size_t n_bit = 0; n_bit < message_length; n_bit++) {
+    const int popped_bit = result[0];
     lshift(result);
     result[result.size() - 1] = bits[n_bit];
 
     // XOR if shifted-out bit was 1
     if (popped_bit) {
-      for (size_t j = 0; j < result.size(); j++) result[j] ^= generator[j + 1];
+      for (std::size_t j = 0; j < result.size(); j++) result[j] ^= generator[j + 1];
     }
   }
 
@@ -106,7 +122,7 @@ Bits crc(const Bits& bits, const Bits& generator, size_t message_length) {
   return _crc(bits, generator, bits.size());
 }*/
 
-bool check_crc(const Bits& bits, const Bits& generator, size_t message_length) {
+bool check_crc(const Bits& bits, const Bits& generator, std::size_t message_length) {
   return AllBitsZero(crc(bits, generator, message_length));
 }
 
@@ -127,16 +143,18 @@ bool BitsEqual(const Bits& bits1, const Bits& bits2) {
   return match;
 }
 
+// Bits to string (0010100101...)
 std::string BitString(const Bits& bits) {
   std::string result;
-  for (int b : bits) result += std::to_string(b);
+  result.reserve(bits.size());
+  for (const int b : bits) result += std::to_string(b);
   return result;
 }
 
-const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len, const Bits& generator) {
+const std::map<Bits, Bits> create_bitflip_syndrome_map(std::size_t len, const Bits& generator) {
   std::map<Bits, Bits> result;
 
-  for (size_t i = 0; i < len; i++) {
+  for (std::size_t i = 0; i < len; i++) {
     Bits error_vector(len);
     error_vector.at(i) = 1;
 
@@ -146,9 +164,10 @@ const std::map<Bits, Bits> create_bitflip_syndrome_map(size_t len, const Bits& g
   return result;
 }
 
+// Bytes to hex string (01 2c 52 00 ...)
 std::string BytesToHexString(const std::vector<uint8_t>& data) {
   std::stringstream ss;
-  for (size_t n_byte = 0; n_byte < data.size(); n_byte++) {
+  for (std::size_t n_byte = 0; n_byte < data.size(); n_byte++) {
     ss << std::setfill('0') << std::setw(2) << std::hex << static_cast<int>(data[n_byte]);
 
     if (n_byte < data.size() - 1)
@@ -171,27 +190,26 @@ std::string BitsToHexString(const Bits& data) {
 }
 
 bool AllBitsZero(const Bits& bits) {
-  bool result = true;
-  for (auto bit : bits) {
-    if (bit) {
-      result = false;
-      break;
-    }
+  for (const auto bit : bits) {
+    if (bit)
+      return false;
   }
 
-  return result;
+  return true;
 }
 
-Bits reversed_bytes_to_bit_vector(const std::vector<uint8_t>& bytes) {
+Bits reversed_bytes_to_bit_vector(const std::vector<std::uint8_t>& bytes) {
   Bits bits;
-  for (uint8_t byte : bytes)
+  bits.reserve(bytes.size() * 8);
+  for (const std::uint8_t byte : bytes)
     for (int n_bit = 0; n_bit < 8; n_bit++) bits.push_back((byte >> (7 - n_bit)) & 1);
 
   return bits;
 }
 
-std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
-  std::vector<uint8_t> bytes;
+std::vector<std::uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
+  std::vector<std::uint8_t> bytes;
+  bytes.reserve(bits.size() / 8);
   for (size_t n_byte = 0; n_byte < bits.size() / 8; n_byte++) {
     bytes.push_back(field(bits, n_byte * 8, 8));
   }
@@ -201,12 +219,14 @@ std::vector<uint8_t> bit_vector_to_reversed_bytes(const Bits& bits) {
 // Extract a field from a vector of bytes.
 // The bit numbering in a byte corresponds to that used in the DARC
 // specification.
-uint32_t bfield(const std::vector<uint8_t>& bytes, size_t start_byte, size_t start_bit,
-                size_t length) {
-  uint32_t result = 0;
-  int n_byte      = start_byte;
-  int n_bit       = start_bit;
-  for (size_t n_bit_result = 0; n_bit_result < length; n_bit_result++) {
+std::uint32_t bfield(const std::vector<std::uint8_t>& bytes, std::size_t start_byte,
+                     std::size_t start_bit, std::size_t length) {
+  assert(start_byte < bytes.size());
+  assert(length <= bytes.size() * 8);
+  std::uint32_t result = 0;
+  int n_byte           = start_byte;
+  int n_bit            = start_bit;
+  for (std::size_t n_bit_result = 0; n_bit_result < length; n_bit_result++) {
     result += ((bytes[n_byte] >> n_bit) & 1) << (length - n_bit_result - 1);
     n_bit--;
     if (n_bit < 0) {
