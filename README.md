@@ -9,31 +9,32 @@ The default input sample rate is 228 kHz.
 
 ## Supported features
 
-Currently, darc2json will decode:
+darc2json can decode:
 
 * L5 Group Data (type 12)
 * Raw Layer 4 LMCh data if type is something else
 * Block application channel: Layer 3 data
 * TDT: Country code, network name, date and time
 
-## TODO
+## Not implemented
 
-* Fragmented L5
-* Short message channel
-* Synchronous Frame Messages
-* PLL and symbol synchronization
-* Error correction beyond single bit flips
-* Don't drop block sync at first error
-* More allocation-efficient handling of bitstrings
-* COT, SCOT, AFT, SAFT
-* Conditional Access at L4
-* Don't repeat unchanged service messages
+A list of things to fix for your own implementation:
+
+* No PLL and symbol synchronization (amazingly, it kind of works)
+* No error correction beyond single bit flips
+* No Fragmented L5
+* No Short message channel
+* No Synchronous Frame Messages
+* No COT, SCOT, AFT, SAFT
+* No Conditional Access at L4
+* Drops block sync at first error
+* Needs more allocation-efficient handling of bitstrings
+* Repeats unchanged service messages
 
 ## Installation
 
-You will need git, the [liquid-dsp][liquid-dsp] library, and GNU autotools.
-Audio files can be decoded if libsndfile is installed. On macOS (OSX) you will
-also need XCode command-line tools (`xcode-select --install`).
+You will need git, a C++17 compiler, the [liquid-dsp][liquid-dsp] library, libsndfile, and meson.
+On macOS (OSX) you will also need XCode command-line tools (`xcode-select --install`).
 
 1. Clone the repository (unless you downloaded a release zip file):
 
@@ -42,17 +43,20 @@ also need XCode command-line tools (`xcode-select --install`).
 
 2. Compile darc2json:
 
-        $ ./autogen.sh && ./configure && make
+        $ meson setup build
+        $ cd build
+        $ meson compile
 
 3. Install:
 
-        $ make install
+        $ meson install
 
 It is also simple to later pull the latest updates and recompile:
 
         $ git pull
-        $ ./autogen.sh && ./configure && make clean && make
-        $ make install
+        $ cd build
+        $ meson compile
+        $ meson install
 
 [liquid-dsp]: https://github.com/jgaeddert/liquid-dsp
 
@@ -101,7 +105,4 @@ Try running this in the terminal:
 
 ## Licensing
 
-darc2json is released under the MIT license, which means it is copyrighted to
-Oona Räisänen OH2EIQ yet you're free to use it provided that the copyright
-information is not removed. (jsoncpp has its own license.) See
-[LICENSE](LICENSE).
+See [LICENSE](LICENSE).
