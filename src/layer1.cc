@@ -95,7 +95,7 @@ void Subcarrier::DemodulateMoreBits() {
   int num_samples = 0;
 
   std::vector<std::complex<float>> complex_samples(
-      resample_ratio_ <= 1.0f ? inbuffer.size() : inbuffer.size() * resample_ratio_);
+      resample_ratio_ <= 1.0f ? inbuffer.size() : std::ceil(inbuffer.size() * resample_ratio_));
 
   if (resample_ratio_ == 1.0f) {
     for (std::size_t i = 0; i < inbuffer.size(); i++) complex_samples[i] = inbuffer[i];
