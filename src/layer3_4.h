@@ -23,7 +23,7 @@
 #include <memory>
 #include <vector>
 
-#include <json/json.h>
+#include <nlohmann/json.hpp>
 
 #include "config.h"
 
@@ -61,7 +61,7 @@ class ServiceMessage {
   ServiceMessage() = default;
   void push_block(const SechBlock& block);
   bool is_complete() const;
-  Json::Value to_json() const;
+  nlohmann::ordered_json to_json() const;
   Bits data_bits() const;
   int country_id() const;
   int network_id() const;
@@ -93,7 +93,7 @@ class LongMessage {
   LongMessage();
   void push_block(const LongBlock& block);
   bool is_complete() const;
-  Json::Value to_json() const;
+  nlohmann::ordered_json to_json() const;
 
  private:
   void parse_l4_header();
@@ -109,17 +109,14 @@ class LongMessage {
 class Layer3 {
  public:
   Layer3(const Options& options);
-  ~Layer3();
+  ~Layer3() = default;
   void push_block(const L2Block& block);
-  void print_line(Json::Value json);
+  void print_line(nlohmann::ordered_json json);
 
  private:
   Options options_;
   ServiceMessage service_message_;
   LongMessage long_message_;
-
-  Json::StreamWriterBuilder writer_builder_;
-  std::unique_ptr<Json::StreamWriter> writer_;
 };
 
 std::string CountryString(std::uint16_t cid, std::uint16_t ecc);

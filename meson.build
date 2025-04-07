@@ -76,7 +76,6 @@ sources_no_main = [
   'src/layer3_4.cc',
   'src/liquid_wrappers.cc',
   'src/util.cc',
-  'src/jsoncpp.cpp',
 ]
 
 executable(

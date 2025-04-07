@@ -20,8 +20,12 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
+#include <ctime>
 #include <iomanip>
 #include <iostream>
+#include <sstream>
+
+#include <nlohmann/json.hpp>
 
 #include "src/layer2.h"
 #include "src/util.h"
@@ -137,8 +141,8 @@ int ServiceMessage::data_type() const {
   return blocks_.empty() ? 0 : blocks_[0].data_type();
 }
 
-Json::Value ServiceMessage::to_json() const {
-  Json::Value json;
+nlohmann::ordered_json ServiceMessage::to_json() const {
+  nlohmann::ordered_json json;
 
   if (!is_complete())
     return json;
@@ -330,8 +334,8 @@ bool LongMessage::is_complete() const {
   return is_complete_;
 }
 
-Json::Value LongMessage::to_json() const {
-  Json::Value json;
+nlohmann::ordered_json LongMessage::to_json() const {
+  nlohmann::ordered_json json;
 
   json["long_message"]["first"] = is_first_;
   json["long_message"]["last"]  = is_last_;
@@ -360,9 +364,9 @@ Json::Value LongMessage::to_json() const {
             tlv_bytes.push_back(bytes_[nbyte]);
             nbyte++;
           }
-          Json::Value group_data(BytesToHexString(tlv_bytes));
+          nlohmann::ordered_json group_data(BytesToHexString(tlv_bytes));
           if (!tlv_bytes.empty())
-            json["long_message"]["group_data"].append(group_data);
+            json["long_message"]["group_data"].push_back(group_data);
         }
       }
     } else {
@@ -375,12 +379,7 @@ Json::Value LongMessage::to_json() const {
   return json;
 }
 
-Layer3::Layer3(const Options& options) : options_(options), writer_builder_() {
-  writer_builder_["indentation"] = "";
-  writer_ = std::unique_ptr<Json::StreamWriter>(writer_builder_.newStreamWriter());
-}
-
-Layer3::~Layer3() {}
+Layer3::Layer3(const Options& options) : options_(options) {}
 
 void Layer3::push_block(const L2Block& l2block) {
   const Bits info_bits = l2block.information_bits();
@@ -411,7 +410,7 @@ void Layer3::push_block(const L2Block& l2block) {
     int subchannel = field(info_bits, 5, 3);
     if (subchannel == 0x0) {
       const Bits data(info_bits.begin() + 8, info_bits.end());
-      Json::Value json;
+      nlohmann::ordered_json json;
 
       json["block_app"]["l3data"] = BitsToHexString(data);
       print_line(json);
@@ -421,13 +420,22 @@ void Layer3::push_block(const L2Block& l2block) {
   }
 }
 
-void Layer3::print_line(Json::Value json) {
+void Layer3::print_line(nlohmann::ordered_json json) {
   if (options_.timestamp)
     json["rx_time"] = TimePointToString(std::chrono::system_clock::now(), options_.time_format);
-  std::stringstream ss;
-  writer_->write(json, &ss);
-  ss << '\n';
-  std::cout << ss.str() << std::flush;
+
+  try {
+    // nlohmann::operator<< throws if a string contains non-UTF8 data.
+    // It's better to throw while writing to a stringstream; otherwise
+    // incomplete JSON objects could get printed.
+    std::stringstream output_proxy_stream;
+    output_proxy_stream << json;
+    std::cout << output_proxy_stream.str() << std::endl;
+  } catch (const std::exception& e) {
+    nlohmann::ordered_json json_from_exception;
+    json_from_exception["debug"] = std::string(e.what());
+    std::cout << json_from_exception << std::endl;
+  }
 }
 
 // EN 50067:1998, Annex D, Table D.1 (p. 71)
